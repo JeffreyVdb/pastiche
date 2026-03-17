@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     github_client_secret: str = ""
 
     # App
+    port: int = 8000
     secret_key: str = "dev-session-secret-change-in-production"
     frontend_url: str = "http://localhost:5173"
     backend_url: str = "http://localhost:8000"

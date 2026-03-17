@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
 import { Logo } from "@/components/ui/Logo";
-import { ThemeSwitcher } from "./ThemeSwitcher";
 import { HamburgerMenu } from "./HamburgerMenu";
 
 export function TopBar() {
@@ -36,7 +35,7 @@ export function TopBar() {
         {/* Spacer */}
         <div style={{ flex: 1 }} />
 
-        {/* Desktop: theme switcher + avatar */}
+        {/* Desktop: settings link + avatar */}
         <div
           className="desktop-controls"
           style={{
@@ -45,7 +44,32 @@ export function TopBar() {
             gap: "12px",
           }}
         >
-          <ThemeSwitcher />
+          <Link
+            to="/settings"
+            aria-label="Settings"
+            title="Settings"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "32px",
+              height: "32px",
+              borderRadius: "8px",
+              color: "var(--color-text-muted)",
+              textDecoration: "none",
+              fontFamily: "var(--font-mono)",
+              fontSize: "18px",
+              transition: "color 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.color = "var(--color-text)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.color = "var(--color-text-muted)";
+            }}
+          >
+            ⚙
+          </Link>
 
           {user && (
             <img

@@ -10,11 +10,25 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as DocsRouteImport } from './routes/docs'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SnippetsNewRouteImport } from './routes/snippets/new'
+import { Route as SnippetsSnippetIdRouteImport } from './routes/snippets/$snippetId'
 
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsRoute = DocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -22,31 +36,76 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SnippetsNewRoute = SnippetsNewRouteImport.update({
+  id: '/snippets/new',
+  path: '/snippets/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SnippetsSnippetIdRoute = SnippetsSnippetIdRouteImport.update({
+  id: '/snippets/$snippetId',
+  path: '/snippets/$snippetId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/docs': typeof DocsRoute
+  '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
+  '/snippets/$snippetId': typeof SnippetsSnippetIdRoute
+  '/snippets/new': typeof SnippetsNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/docs': typeof DocsRoute
+  '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
+  '/snippets/$snippetId': typeof SnippetsSnippetIdRoute
+  '/snippets/new': typeof SnippetsNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/docs': typeof DocsRoute
+  '/settings': typeof SettingsRoute
   '/sign-in': typeof SignInRoute
+  '/snippets/$snippetId': typeof SnippetsSnippetIdRoute
+  '/snippets/new': typeof SnippetsNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/sign-in'
+  fullPaths:
+    | '/'
+    | '/docs'
+    | '/settings'
+    | '/sign-in'
+    | '/snippets/$snippetId'
+    | '/snippets/new'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/sign-in'
-  id: '__root__' | '/' | '/sign-in'
+  to:
+    | '/'
+    | '/docs'
+    | '/settings'
+    | '/sign-in'
+    | '/snippets/$snippetId'
+    | '/snippets/new'
+  id:
+    | '__root__'
+    | '/'
+    | '/docs'
+    | '/settings'
+    | '/sign-in'
+    | '/snippets/$snippetId'
+    | '/snippets/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DocsRoute: typeof DocsRoute
+  SettingsRoute: typeof SettingsRoute
   SignInRoute: typeof SignInRoute
+  SnippetsSnippetIdRoute: typeof SnippetsSnippetIdRoute
+  SnippetsNewRoute: typeof SnippetsNewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,6 +117,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignInRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs': {
+      id: '/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof DocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -65,12 +138,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/snippets/new': {
+      id: '/snippets/new'
+      path: '/snippets/new'
+      fullPath: '/snippets/new'
+      preLoaderRoute: typeof SnippetsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/snippets/$snippetId': {
+      id: '/snippets/$snippetId'
+      path: '/snippets/$snippetId'
+      fullPath: '/snippets/$snippetId'
+      preLoaderRoute: typeof SnippetsSnippetIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DocsRoute: DocsRoute,
+  SettingsRoute: SettingsRoute,
   SignInRoute: SignInRoute,
+  SnippetsSnippetIdRoute: SnippetsSnippetIdRoute,
+  SnippetsNewRoute: SnippetsNewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

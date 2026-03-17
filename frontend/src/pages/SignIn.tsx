@@ -1,6 +1,5 @@
 import { useTheme } from "@/hooks/useTheme";
 import { Logo } from "@/components/ui/Logo";
-import { ThemeSwitcher } from "@/components/layout/ThemeSwitcher";
 
 export function SignIn() {
   const { resolved } = useTheme();
@@ -53,13 +52,11 @@ export function SignIn() {
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
           padding: "20px 24px",
         }}
         className="animate-fade-in"
       >
         <Logo size="sm" />
-        <ThemeSwitcher />
       </header>
 
       {/* Main content */}

@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { Link } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
-import { ThemeSwitcher } from "./ThemeSwitcher";
 
 interface HamburgerMenuProps {
   open: boolean;
@@ -172,6 +171,60 @@ export function HamburgerMenu({ open, onClose }: HamburgerMenuProps) {
             <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-accent)" }}>~/</span>
             Home
           </Link>
+          <Link
+            to="/snippets/new"
+            onClick={onClose}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              padding: "10px 12px",
+              borderRadius: "8px",
+              color: "var(--color-text)",
+              textDecoration: "none",
+              fontSize: "15px",
+              fontWeight: 500,
+            }}
+          >
+            <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-accent)" }}>+</span>
+            New Snippet
+          </Link>
+          <Link
+            to="/settings"
+            onClick={onClose}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              padding: "10px 12px",
+              borderRadius: "8px",
+              color: "var(--color-text)",
+              textDecoration: "none",
+              fontSize: "15px",
+              fontWeight: 500,
+            }}
+          >
+            <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-accent)" }}>*</span>
+            Settings
+          </Link>
+          <Link
+            to="/docs"
+            onClick={onClose}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              padding: "10px 12px",
+              borderRadius: "8px",
+              color: "var(--color-text)",
+              textDecoration: "none",
+              fontSize: "15px",
+              fontWeight: 500,
+            }}
+          >
+            <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-accent)" }}>?</span>
+            API Docs
+          </Link>
         </nav>
 
         {/* Footer */}
@@ -181,10 +234,9 @@ export function HamburgerMenu({ open, onClose }: HamburgerMenuProps) {
             borderTop: "1px solid var(--color-border)",
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: "flex-end",
           }}
         >
-          <ThemeSwitcher />
           {user && (
             <button
               onClick={async () => {

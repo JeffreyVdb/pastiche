@@ -7,6 +7,8 @@ from sqlmodel import SQLModel
 
 # Import models so metadata picks them up
 import app.models.user  # noqa: F401
+import app.models.snippet  # noqa: F401
+import app.models.api_key  # noqa: F401
 from app.core.config import settings
 
 config = context.config

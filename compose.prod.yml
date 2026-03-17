@@ -1,0 +1,46 @@
+services:
+  db:
+    image: public.ecr.aws/docker/library/postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pastiche}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-pastiche}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pastiche} -d ${POSTGRES_DB:-pastiche}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-pastiche}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-pastiche}
+      PORT: ${BACKEND_PORT:-8000}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      BACKEND_URL: ${BACKEND_URL:-http://localhost:8000}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+    ports:
+      - "${BACKEND_PORT:-8000}:${BACKEND_PORT:-8000}"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  pgdata:

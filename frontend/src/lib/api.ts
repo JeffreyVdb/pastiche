@@ -10,6 +10,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw Object.assign(new Error(error.detail ?? "Request failed"), { status: response.status });
   }
 
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 

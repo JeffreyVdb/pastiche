@@ -33,18 +33,6 @@
   --color-charcoal-600: #30363d;
 }
 
-/* Light theme override */
-.light {
-  --color-bg: #f5f0eb;
-  --color-surface: #ffffff;
-  --color-surface-2: #ede8e3;
-  --color-border: #d4cdc6;
-  --color-text: #1a1a1a;
-  --color-text-muted: #6b6b6b;
-  --color-accent: #006d5e;
-  --color-accent-dim: #006d5e18;
-  --color-accent-hover: #00897a;
-}
 
 * {
   box-sizing: border-box;

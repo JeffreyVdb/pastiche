@@ -10,15 +10,18 @@
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "@scalar/api-reference-react": "^0.9.10",
     "@tanstack/react-router": "^1.112.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-syntax-highlighter": "^16.1.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.0",
     "@tanstack/router-plugin": "^1.112.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/react-syntax-highlighter": "^15.5.13",
     "@vitejs/plugin-react": "^4.3.4",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.7.0",
