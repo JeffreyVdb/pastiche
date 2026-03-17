@@ -16,15 +16,10 @@ RUN pnpm build
 FROM public.ecr.aws/docker/library/nginx:alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
 
-# SPA routing: send all requests to index.html
-RUN printf 'server {\n\
-    listen 80;\n\
-    root /usr/share/nginx/html;\n\
-    index index.html;\n\
-    location / {\n\
-        try_files $uri $uri/ /index.html;\n\
-    }\n\
-}\n' > /etc/nginx/conf.d/default.conf
+# Default to a non-privileged port for host networking; override with `-e PORT=...`.
+ENV PORT=8080
+ENV NGINX_ENVSUBST_FILTER=PORT
 
-EXPOSE 80
+EXPOSE 8080
