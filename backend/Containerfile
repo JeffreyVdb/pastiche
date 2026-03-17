@@ -1,0 +1,35 @@
+# Build stage
+FROM ghcr.io/astral-sh/uv:python3.14-alpine3.23 AS builder
+
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never
+
+WORKDIR /app
+
+COPY pyproject.toml .
+RUN uv sync --no-dev --no-install-project
+
+COPY app/ ./app/
+COPY alembic/ ./alembic/
+COPY alembic.ini .
+
+RUN uv sync --no-dev
+
+
+# Runtime stage
+FROM public.ecr.aws/docker/library/python:3.14-alpine3.23
+
+WORKDIR /app
+
+# Copy only the virtualenv and application code
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app/app ./app
+COPY --from=builder /app/alembic ./alembic
+COPY --from=builder /app/alembic.ini .
+
+ENV PATH="/app/.venv/bin:$PATH"
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -9,3 +9,34 @@
 .vscode/
 *.swp
 *.swo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+.uv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Node
+node_modules/
+dist/
+.npm/
+
+# Database
+pgdata/
+
+# Alembic
+# (keep versions tracked, ignore nothing here by default)
