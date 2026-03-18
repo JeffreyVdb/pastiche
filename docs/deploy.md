@@ -45,7 +45,7 @@ Images are published to:
 | `GITHUB_CLIENT_ID` | GitHub OAuth App client ID |
 | `GITHUB_CLIENT_SECRET` | GitHub OAuth App client secret |
 | `FRONTEND_URL` | Public URL of the frontend (used for CORS and OAuth redirect) |
-| `BACKEND_URL` | Public URL of the backend API (used to construct the OAuth callback URL) |
+| `BACKEND_URL` | Public URL of the backend API origin, **without** a trailing `/api` (e.g. `https://example.com`). Used to construct the OAuth callback URL. |
 
 ### Optional
 

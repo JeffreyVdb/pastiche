@@ -5,7 +5,13 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.api.router import router
 from app.core.config import settings
 
-app = FastAPI(title="Pastiche API", version="0.1.0")
+app = FastAPI(
+    title="Pastiche API",
+    version="0.1.0",
+    docs_url="/api/docs",
+    openapi_url="/api/openapi.json",
+    redoc_url="/api/redoc",
+)
 
 app.add_middleware(
     CORSMiddleware,

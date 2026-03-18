@@ -207,8 +207,8 @@ export function HamburgerMenu({ open, onClose }: HamburgerMenuProps) {
             <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-accent)" }}>*</span>
             Settings
           </Link>
-          <Link
-            to="/docs"
+          <a
+            href="/api/docs"
             onClick={onClose}
             style={{
               display: "flex",
@@ -224,7 +224,7 @@ export function HamburgerMenu({ open, onClose }: HamburgerMenuProps) {
           >
             <span style={{ fontFamily: "var(--font-mono)", color: "var(--color-accent)" }}>?</span>
             API Docs
-          </Link>
+          </a>
         </nav>
 
         {/* Footer */}

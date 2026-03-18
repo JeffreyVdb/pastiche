@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import SyntaxHighlighter from "react-syntax-highlighter";
-import { Link } from "@tanstack/react-router";
 import { ThemePicker } from "@/components/layout/ThemeSwitcher";
 import { useTheme } from "@/hooks/useTheme";
 import { api } from "@/lib/api";
@@ -473,12 +472,12 @@ export function Settings() {
             >
               Use API keys to authenticate requests from scripts or other tools. Keys are shown once
               on creation. See the{" "}
-              <Link
-                to="/docs"
+              <a
+                href="/api/docs"
                 style={{ color: "var(--color-accent)", textDecoration: "none" }}
               >
                 API reference
-              </Link>{" "}
+              </a>{" "}
               for available endpoints.
             </p>
           </div>

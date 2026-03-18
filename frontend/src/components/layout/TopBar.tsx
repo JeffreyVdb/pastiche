@@ -45,6 +45,60 @@ export function TopBar() {
           }}
         >
           <Link
+            to="/snippets/new"
+            aria-label="New Snippet"
+            title="New Snippet"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "32px",
+              height: "32px",
+              borderRadius: "8px",
+              color: "var(--color-text-muted)",
+              textDecoration: "none",
+              fontFamily: "var(--font-mono)",
+              fontSize: "20px",
+              transition: "color 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.color = "var(--color-text)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.color = "var(--color-text-muted)";
+            }}
+          >
+            +
+          </Link>
+
+          <a
+            href="/api/docs"
+            aria-label="API Docs"
+            title="API Docs"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "32px",
+              height: "32px",
+              borderRadius: "8px",
+              color: "var(--color-text-muted)",
+              textDecoration: "none",
+              fontFamily: "var(--font-mono)",
+              fontSize: "18px",
+              transition: "color 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.color = "var(--color-text)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLAnchorElement).style.color = "var(--color-text-muted)";
+            }}
+          >
+            ?
+          </a>
+
+          <Link
             to="/settings"
             aria-label="Settings"
             title="Settings"
