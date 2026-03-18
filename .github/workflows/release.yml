@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  packages: write
+  contents: read
+
+jobs:
+  build-and-push:
+    name: Build and push ${{ matrix.component }}
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      matrix:
+        component: [backend, frontend]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Log in to GHCR
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+        run: echo "$GITHUB_TOKEN" | podman login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build image
+        env:
+          COMPONENT: ${{ matrix.component }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          podman build \
+            -t "ghcr.io/jeffreyvdb/pastiche-${COMPONENT}:${VERSION}" \
+            -t "ghcr.io/jeffreyvdb/pastiche-${COMPONENT}:latest" \
+            -f "${COMPONENT}/Containerfile" \
+            "${COMPONENT}"
+
+      - name: Push image
+        env:
+          COMPONENT: ${{ matrix.component }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          podman push "ghcr.io/jeffreyvdb/pastiche-${COMPONENT}:${VERSION}"
+          podman push "ghcr.io/jeffreyvdb/pastiche-${COMPONENT}:latest"
