@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useIsMobile } from "../../hooks/useIsMobile";
 
 interface ConfirmDialogProps {
@@ -41,7 +42,7 @@ export function ConfirmDialog({
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
       className="animate-fade-in"
       onClick={onCancel}
@@ -212,6 +213,7 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
