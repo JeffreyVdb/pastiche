@@ -60,8 +60,14 @@ end`,
   },
 ];
 
+function parseUTCDate(dateStr: string): Date {
+  return /[Z+\-]\d{0,2}:?\d{0,2}$/.test(dateStr)
+    ? new Date(dateStr)
+    : new Date(dateStr + "Z");
+}
+
 function formatDate(dateStr: string): string {
-  return new Date(dateStr + "Z").toLocaleDateString("en-US", {
+  return parseUTCDate(dateStr).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -70,7 +76,7 @@ function formatDate(dateStr: string): string {
 
 function formatLastUsed(dateStr: string | null): string {
   if (!dateStr) return "Never";
-  const date = new Date(dateStr + "Z");
+  const date = parseUTCDate(dateStr);
   const diffMs = Date.now() - date.getTime();
   const diffDays = Math.floor(diffMs / 86400000);
   if (diffDays === 0) return "Today";
