@@ -14,6 +14,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SnippetsNewRouteImport } from './routes/snippets/new'
 import { Route as SnippetsSnippetIdRouteImport } from './routes/snippets/$snippetId'
+import { Route as SnippetsSnippetIdEditRouteImport } from './routes/snippets/$snippetId_.edit'
 
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
@@ -40,6 +41,11 @@ const SnippetsSnippetIdRoute = SnippetsSnippetIdRouteImport.update({
   path: '/snippets/$snippetId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SnippetsSnippetIdEditRoute = SnippetsSnippetIdEditRouteImport.update({
+  id: '/snippets/$snippetId_/edit',
+  path: '/snippets/$snippetId/edit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/snippets/$snippetId': typeof SnippetsSnippetIdRoute
   '/snippets/new': typeof SnippetsNewRoute
+  '/snippets/$snippetId/edit': typeof SnippetsSnippetIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/snippets/$snippetId': typeof SnippetsSnippetIdRoute
   '/snippets/new': typeof SnippetsNewRoute
+  '/snippets/$snippetId/edit': typeof SnippetsSnippetIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,6 +70,7 @@ export interface FileRoutesById {
   '/sign-in': typeof SignInRoute
   '/snippets/$snippetId': typeof SnippetsSnippetIdRoute
   '/snippets/new': typeof SnippetsNewRoute
+  '/snippets/$snippetId_/edit': typeof SnippetsSnippetIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -71,8 +80,15 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/snippets/$snippetId'
     | '/snippets/new'
+    | '/snippets/$snippetId/edit'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/settings' | '/sign-in' | '/snippets/$snippetId' | '/snippets/new'
+  to:
+    | '/'
+    | '/settings'
+    | '/sign-in'
+    | '/snippets/$snippetId'
+    | '/snippets/new'
+    | '/snippets/$snippetId/edit'
   id:
     | '__root__'
     | '/'
@@ -80,6 +96,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/snippets/$snippetId'
     | '/snippets/new'
+    | '/snippets/$snippetId_/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -88,6 +105,7 @@ export interface RootRouteChildren {
   SignInRoute: typeof SignInRoute
   SnippetsSnippetIdRoute: typeof SnippetsSnippetIdRoute
   SnippetsNewRoute: typeof SnippetsNewRoute
+  SnippetsSnippetIdEditRoute: typeof SnippetsSnippetIdEditRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -127,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SnippetsSnippetIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/snippets/$snippetId_/edit': {
+      id: '/snippets/$snippetId_/edit'
+      path: '/snippets/$snippetId/edit'
+      fullPath: '/snippets/$snippetId/edit'
+      preLoaderRoute: typeof SnippetsSnippetIdEditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -136,6 +161,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignInRoute: SignInRoute,
   SnippetsSnippetIdRoute: SnippetsSnippetIdRoute,
   SnippetsNewRoute: SnippetsNewRoute,
+  SnippetsSnippetIdEditRoute: SnippetsSnippetIdEditRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
