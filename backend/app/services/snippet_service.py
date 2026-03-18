@@ -36,3 +36,23 @@ async def get_snippet_by_id(session: AsyncSession, snippet_id: uuid.UUID) -> Sni
 async def delete_snippet(session: AsyncSession, snippet: Snippet) -> None:
     await session.delete(snippet)
     await session.commit()
+
+
+async def update_snippet(
+    session: AsyncSession,
+    snippet: Snippet,
+    title: str | None = None,
+    language: str | None = None,
+    content: str | None = None,
+) -> Snippet:
+    if title is not None:
+        snippet.title = title
+    if language is not None:
+        snippet.language = language
+    if content is not None:
+        snippet.content = content
+    snippet.updated_at = datetime.now(UTC).replace(tzinfo=None)
+    session.add(snippet)
+    await session.commit()
+    await session.refresh(snippet)
+    return snippet

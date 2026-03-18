@@ -31,6 +31,12 @@ class SnippetCreate(SQLModel):
     content: str = Field(min_length=1)
 
 
+class SnippetUpdate(SQLModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    language: str | None = Field(default=None, max_length=100)
+    content: str | None = Field(default=None, min_length=1)
+
+
 class SnippetRead(SQLModel):
     id: uuid.UUID
     user_id: uuid.UUID

@@ -1,29 +1,59 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { api } from "@/lib/api";
 import { LANGUAGES } from "@/lib/languages";
 import type { Snippet } from "@/types/snippet";
 import { FocusInput, FocusSelect, FocusTextarea } from "@/components/snippets/SnippetFormFields";
 
-export function CreateSnippet() {
+export function EditSnippet({ snippetId }: { snippetId: string }) {
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
   const [language, setLanguage] = useState("autodetect");
   const [content, setContent] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    api.get<Snippet>(`/api/snippets/${snippetId}`)
+      .then((snippet) => {
+        setTitle(snippet.title);
+        setLanguage(snippet.language);
+        setContent(snippet.content);
+      })
+      .catch(() => setNotFound(true))
+      .finally(() => setLoading(false));
+  }, [snippetId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setLoading(true);
+    setSaving(true);
     try {
-      await api.post<Snippet>("/api/snippets", { title, language, content });
-      navigate({ to: "/" });
+      await api.patch<Snippet>(`/api/snippets/${snippetId}`, { title, language, content });
+      navigate({ to: "/snippets/$snippetId", params: { snippetId } });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create snippet");
-      setLoading(false);
+      setError(err instanceof Error ? err.message : "Failed to save changes");
+      setSaving(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--color-bg)" }}>
+        <div style={{ width: "20px", height: "20px", border: "2px solid var(--color-border)", borderTopColor: "var(--color-accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+      </div>
+    );
+  }
+
+  if (notFound) {
+    return (
+      <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px", background: "var(--color-bg)" }}>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--color-text-muted)" }}>snippet not found</span>
+        <Link to="/" style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--color-accent)", textDecoration: "none" }}>← back</Link>
+      </div>
+    );
   }
 
   return (
@@ -58,7 +88,7 @@ export function CreateSnippet() {
                 opacity: 0.8,
               }}
             >
-              {"// new snippet"}
+              {"// edit snippet"}
             </p>
             <h1
               style={{
@@ -70,12 +100,13 @@ export function CreateSnippet() {
                 letterSpacing: "-0.04em",
               }}
             >
-              Create Snippet
+              Edit Snippet
             </h1>
           </div>
 
           <Link
-            to="/"
+            to="/snippets/$snippetId"
+            params={{ snippetId }}
             style={{
               fontFamily: "var(--font-mono)",
               fontSize: "12px",
@@ -190,7 +221,7 @@ export function CreateSnippet() {
           <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", paddingTop: "4px" }}>
             <button
               type="submit"
-              disabled={loading}
+              disabled={saving}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -204,12 +235,12 @@ export function CreateSnippet() {
                 fontSize: "14px",
                 fontWeight: 600,
                 letterSpacing: "-0.01em",
-                cursor: loading ? "not-allowed" : "pointer",
-                opacity: loading ? 0.7 : 1,
+                cursor: saving ? "not-allowed" : "pointer",
+                opacity: saving ? 0.7 : 1,
                 transition: "opacity 0.15s",
               }}
             >
-              {loading ? (
+              {saving ? (
                 <>
                   <div
                     style={{
@@ -225,8 +256,8 @@ export function CreateSnippet() {
                 </>
               ) : (
                 <>
-                  <span style={{ fontSize: "16px" }}>+</span>
-                  Save Snippet
+                  <span style={{ fontSize: "14px" }}>✓</span>
+                  Save Changes
                 </>
               )}
             </button>

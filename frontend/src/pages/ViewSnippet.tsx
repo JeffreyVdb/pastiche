@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import SyntaxHighlighter from "react-syntax-highlighter";
 import type { Snippet } from "@/types/snippet";
 import { api } from "@/lib/api";
@@ -7,6 +7,7 @@ import { formatSize } from "@/lib/format-size";
 import { useTheme } from "@/hooks/useTheme";
 
 export function ViewSnippet({ snippetId }: { snippetId: string }) {
+  const navigate = useNavigate();
   const [snippet, setSnippet] = useState<Snippet | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -59,24 +60,55 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
           >
             ← back
           </Link>
-          <button
-            onClick={handleCopy}
-            style={{
-              padding: "5px 12px",
-              background: "none",
-              border: "1px solid var(--color-accent)",
-              borderRadius: "6px",
-              color: "var(--color-accent)",
-              fontFamily: "var(--font-mono)",
-              fontSize: "11px",
-              cursor: "pointer",
-              letterSpacing: "0.04em",
-              transition: "background 0.15s, opacity 0.15s",
-              opacity: copied ? 0.7 : 1,
-            }}
-          >
-            {copied ? "copied!" : "copy"}
-          </button>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button
+              onClick={() => navigate({ to: "/snippets/$snippetId/edit", params: { snippetId } })}
+              style={{
+                padding: "5px 12px",
+                background: "none",
+                border: "1px solid var(--color-border)",
+                borderRadius: "6px",
+                color: "var(--color-text-muted)",
+                fontFamily: "var(--font-mono)",
+                fontSize: "11px",
+                cursor: "pointer",
+                letterSpacing: "0.04em",
+                transition: "background 0.15s, border-color 0.15s, color 0.15s",
+              }}
+              onMouseEnter={(e) => {
+                const el = e.currentTarget as HTMLButtonElement;
+                el.style.background = "var(--color-accent-dim)";
+                el.style.borderColor = "var(--color-accent)";
+                el.style.color = "var(--color-accent)";
+              }}
+              onMouseLeave={(e) => {
+                const el = e.currentTarget as HTMLButtonElement;
+                el.style.background = "none";
+                el.style.borderColor = "var(--color-border)";
+                el.style.color = "var(--color-text-muted)";
+              }}
+            >
+              edit
+            </button>
+            <button
+              onClick={handleCopy}
+              style={{
+                padding: "5px 12px",
+                background: "none",
+                border: "1px solid var(--color-accent)",
+                borderRadius: "6px",
+                color: "var(--color-accent)",
+                fontFamily: "var(--font-mono)",
+                fontSize: "11px",
+                cursor: "pointer",
+                letterSpacing: "0.04em",
+                transition: "background 0.15s, opacity 0.15s",
+                opacity: copied ? 0.7 : 1,
+              }}
+            >
+              {copied ? "copied!" : "copy"}
+            </button>
+          </div>
         </div>
 
         {/* Title + metadata */}

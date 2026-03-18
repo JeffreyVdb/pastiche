@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import type { Snippet } from "@/types/snippet";
 import { formatSize } from "@/lib/format-size";
 
@@ -9,7 +9,9 @@ interface SnippetCardProps {
 }
 
 export function SnippetCard({ snippet, onDelete }: SnippetCardProps) {
+  const navigate = useNavigate();
   const [hovered, setHovered] = useState(false);
+  const [editHovered, setEditHovered] = useState(false);
   const [deleteHovered, setDeleteHovered] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -112,19 +114,24 @@ export function SnippetCard({ snippet, onDelete }: SnippetCardProps) {
       {/* Action buttons */}
       <div style={{ display: "flex", gap: "8px", marginTop: "2px" }}>
         <button
-          disabled
-          title="Coming soon"
+          onMouseEnter={() => setEditHovered(true)}
+          onMouseLeave={() => setEditHovered(false)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            navigate({ to: "/snippets/$snippetId/edit", params: { snippetId: snippet.id } });
+          }}
           style={{
             flex: 1,
             padding: "6px 12px",
-            background: "none",
-            border: "1px solid var(--color-border)",
+            background: editHovered ? "var(--color-accent-dim)" : "none",
+            border: `1px solid ${editHovered ? "var(--color-accent)" : "var(--color-border)"}`,
             borderRadius: "7px",
-            color: "var(--color-text-muted)",
+            color: editHovered ? "var(--color-accent)" : "var(--color-text-muted)",
             fontFamily: "var(--font-mono)",
             fontSize: "11px",
-            cursor: "not-allowed",
-            opacity: 0.4,
+            cursor: "pointer",
+            transition: "background 0.15s, border-color 0.15s, color 0.15s",
             letterSpacing: "0.04em",
           }}
         >

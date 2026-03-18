@@ -13,3 +13,9 @@ export interface SnippetCreate {
   language: string;
   content: string;
 }
+
+export interface SnippetUpdate {
+  title?: string;
+  language?: string;
+  content?: string;
+}
