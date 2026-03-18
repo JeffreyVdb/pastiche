@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import SyntaxHighlighter from "react-syntax-highlighter";
 import { ThemePicker } from "@/components/layout/ThemeSwitcher";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useTheme } from "@/hooks/useTheme";
 import { api } from "@/lib/api";
 import type { ApiKey, ApiKeyCreated } from "@/types/api-key";
@@ -596,8 +597,10 @@ function KeyRow({
   onDelete: (id: string) => void;
 }) {
   const [deleteHover, setDeleteHover] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
+    <>
     <div
       style={{
         display: "flex",
@@ -678,7 +681,7 @@ function KeyRow({
       </div>
 
       <button
-        onClick={() => onDelete(apiKey.id)}
+        onClick={() => setConfirmOpen(true)}
         onMouseEnter={() => setDeleteHover(true)}
         onMouseLeave={() => setDeleteHover(false)}
         style={{
@@ -697,5 +700,17 @@ function KeyRow({
         rm
       </button>
     </div>
+    <ConfirmDialog
+      open={confirmOpen}
+      title="Revoke API key"
+      message={`"${apiKey.name}" (${apiKey.prefix}…) will be permanently revoked. Any integrations using this key will stop working.`}
+      confirmLabel="revoke"
+      onConfirm={() => {
+        setConfirmOpen(false);
+        onDelete(apiKey.id);
+      }}
+      onCancel={() => setConfirmOpen(false)}
+    />
+    </>
   );
 }
