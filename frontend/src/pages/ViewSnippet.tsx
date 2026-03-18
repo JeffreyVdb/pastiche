@@ -49,7 +49,7 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
 
   return (
     <div style={{ background: "var(--color-bg)", minHeight: "100dvh", padding: "40px 24px" }}>
-      <div style={{ maxWidth: "800px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "28px" }}>
+      <div style={{ maxWidth: "1200px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "28px" }}>
 
         {/* Header bar */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>

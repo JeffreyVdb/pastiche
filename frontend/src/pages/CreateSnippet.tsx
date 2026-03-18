@@ -94,7 +94,7 @@ export function CreateSnippet() {
         padding: "48px 24px",
       }}
     >
-      <div style={{ width: "100%", maxWidth: "720px" }}>
+      <div style={{ width: "100%", maxWidth: "960px" }}>
         {/* Header */}
         <div
           style={{

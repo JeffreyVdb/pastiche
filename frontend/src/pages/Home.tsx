@@ -261,7 +261,7 @@ export function Home() {
         display: "flex",
         flexDirection: "column",
         padding: "40px 24px",
-        maxWidth: "960px",
+        maxWidth: "1200px",
         width: "100%",
         margin: "0 auto",
         boxSizing: "border-box",

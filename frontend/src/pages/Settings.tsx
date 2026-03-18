@@ -303,7 +303,7 @@ export function Settings() {
       <div
         style={{
           flex: 1,
-          maxWidth: "720px",
+          maxWidth: "880px",
           width: "100%",
           margin: "0 auto",
           padding: "40px 24px",
