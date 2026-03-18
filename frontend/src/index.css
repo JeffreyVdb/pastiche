@@ -147,6 +147,21 @@ body {
   animation: slide-out-right 0.3s cubic-bezier(0.7, 0, 0.84, 0) both;
 }
 
+@keyframes slide-up-bounce {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up-bounce {
+  animation: slide-up-bounce 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 .delay-100 { animation-delay: 100ms; }
 .delay-150 { animation-delay: 150ms; }
 .delay-200 { animation-delay: 200ms; }

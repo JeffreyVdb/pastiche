@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { Snippet } from "@/types/snippet";
 import { formatSize } from "@/lib/format-size";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 interface SnippetCardProps {
   snippet: Snippet;
@@ -14,8 +15,10 @@ export function SnippetCard({ snippet, onDelete }: SnippetCardProps) {
   const [editHovered, setEditHovered] = useState(false);
   const [deleteHovered, setDeleteHovered] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
+    <>
     <Link
       to="/snippets/$snippetId"
       params={{ snippetId: snippet.id }}
@@ -145,8 +148,7 @@ export function SnippetCard({ snippet, onDelete }: SnippetCardProps) {
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            setDeleting(true);
-            onDelete(snippet.id);
+            setConfirmOpen(true);
           }}
           style={{
             flex: 1,
@@ -168,5 +170,19 @@ export function SnippetCard({ snippet, onDelete }: SnippetCardProps) {
       </div>
     </div>
     </Link>
+
+    <ConfirmDialog
+      open={confirmOpen}
+      title="Delete snippet"
+      message={`"${snippet.title}" will be permanently deleted. This cannot be undone.`}
+      confirmLabel="delete"
+      onConfirm={() => {
+        setConfirmOpen(false);
+        setDeleting(true);
+        onDelete(snippet.id);
+      }}
+      onCancel={() => setConfirmOpen(false)}
+    />
+    </>
   );
 }
