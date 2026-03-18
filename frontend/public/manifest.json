@@ -1,0 +1,14 @@
+{
+  "name": "Pastiche",
+  "short_name": "Pastiche",
+  "description": "Code snippets manager",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#282828",
+  "theme_color": "#282828",
+  "icons": [
+    { "src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any" },
+    { "src": "/icons/icon-192.png", "type": "image/png", "sizes": "192x192" },
+    { "src": "/icons/icon-512.png", "type": "image/png", "sizes": "512x512" }
+  ]
+}

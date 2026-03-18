@@ -57,6 +57,10 @@ function applyTheme(theme: SyntaxTheme) {
   root.classList.toggle("dark", category === "dark");
   root.classList.toggle("light", category === "light");
   root.style.colorScheme = category;
+
+  document
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute("content", appColors.bg);
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
