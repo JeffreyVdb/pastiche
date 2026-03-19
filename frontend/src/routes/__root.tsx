@@ -1,5 +1,6 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { SettingsProvider } from "@/contexts/SettingsContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 
 export const Route = createRootRoute({
@@ -9,9 +10,11 @@ export const Route = createRootRoute({
 function Root() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <Outlet />
-      </AuthProvider>
+      <SettingsProvider>
+        <AuthProvider>
+          <Outlet />
+        </AuthProvider>
+      </SettingsProvider>
     </ThemeProvider>
   );
 }
