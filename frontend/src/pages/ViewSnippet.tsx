@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
+import ReactMarkdown from "react-markdown";
 import SyntaxHighlighter from "react-syntax-highlighter";
+import remarkGfm from "remark-gfm";
 import type { Snippet } from "@/types/snippet";
 import { api } from "@/lib/api";
 import { formatSize } from "@/lib/format-size";
@@ -12,6 +14,7 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const { theme } = useTheme();
 
   useEffect(() => {
@@ -61,6 +64,25 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
             ← back
           </Link>
           <div style={{ display: "flex", gap: "8px" }}>
+            {snippet.language === "markdown" && (
+              <button
+                onClick={() => setShowPreview((v) => !v)}
+                style={{
+                  padding: "5px 12px",
+                  background: showPreview ? "var(--color-accent-dim)" : "none",
+                  border: `1px solid ${showPreview ? "var(--color-accent)" : "var(--color-border)"}`,
+                  borderRadius: "6px",
+                  color: showPreview ? "var(--color-accent)" : "var(--color-text-muted)",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "11px",
+                  cursor: "pointer",
+                  letterSpacing: "0.04em",
+                  transition: "background 0.15s, border-color 0.15s, color 0.15s",
+                }}
+              >
+                {showPreview ? "source" : "preview"}
+              </button>
+            )}
             <button
               onClick={() => navigate({ to: "/snippets/$snippetId/edit", params: { snippetId } })}
               style={{
@@ -128,16 +150,33 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
           </div>
         </div>
 
-        {/* Code block */}
-        <div style={{ borderRadius: "12px", overflow: "hidden", border: "1px solid var(--color-border)" }}>
-          <SyntaxHighlighter
-            language={snippet.language === "autodetect" ? undefined : snippet.language}
-            style={highlighterStyle}
-            customStyle={{ background: "var(--color-surface)", fontFamily: "var(--font-mono)", fontSize: "13px", lineHeight: "1.6", padding: "20px 24px", margin: 0, borderRadius: "12px" }}
+        {/* Code block / Markdown preview */}
+        {showPreview && snippet.language === "markdown" ? (
+          <div
+            className="markdown-preview"
+            style={{
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-border)",
+              borderRadius: "12px",
+              padding: "24px 28px",
+              fontFamily: "var(--font-markdown)",
+            }}
           >
-            {snippet.content}
-          </SyntaxHighlighter>
-        </div>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {snippet.content}
+            </ReactMarkdown>
+          </div>
+        ) : (
+          <div style={{ borderRadius: "12px", overflow: "hidden", border: "1px solid var(--color-border)" }}>
+            <SyntaxHighlighter
+              language={snippet.language === "autodetect" ? undefined : snippet.language}
+              style={highlighterStyle}
+              customStyle={{ background: "var(--color-surface)", fontFamily: "var(--font-mono)", fontSize: "var(--font-size-code)", lineHeight: "1.6", padding: "20px 24px", margin: 0, borderRadius: "12px" }}
+            >
+              {snippet.content}
+            </SyntaxHighlighter>
+          </div>
+        )}
 
       </div>
     </div>

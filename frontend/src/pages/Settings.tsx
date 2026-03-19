@@ -1,9 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
 import SyntaxHighlighter from "react-syntax-highlighter";
+import { FontPicker } from "@/components/layout/FontPicker";
 import { ThemePicker } from "@/components/layout/ThemeSwitcher";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useSettings } from "@/hooks/useSettings";
 import { useTheme } from "@/hooks/useTheme";
 import { api } from "@/lib/api";
+import {
+  CODE_FONTS,
+  CODE_FONT_SIZE_MAX,
+  CODE_FONT_SIZE_MIN,
+  FONT_SIZE_STEP,
+  MARKDOWN_FONTS,
+  MARKDOWN_FONT_SIZE_MAX,
+  MARKDOWN_FONT_SIZE_MIN,
+} from "@/lib/fonts";
 import type { ApiKey, ApiKeyCreated } from "@/types/api-key";
 
 const CODE_PREVIEWS: { language: string; label: string; code: string }[] = [
@@ -88,6 +99,16 @@ function formatLastUsed(dateStr: string | null): string {
 
 export function Settings() {
   const { theme } = useTheme();
+  const {
+    codeFontId,
+    markdownFontId,
+    codeFontSize,
+    markdownFontSize,
+    setCodeFont,
+    setMarkdownFont,
+    setCodeFontSize,
+    setMarkdownFontSize,
+  } = useSettings();
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [keysLoading, setKeysLoading] = useState(true);
   const [newKeyName, setNewKeyName] = useState("");
@@ -441,6 +462,111 @@ export function Settings() {
           }}
         />
 
+        {/* ── Typography ── */}
+        <section style={{ marginBottom: "56px" }}>
+          <div style={{ marginBottom: "20px" }}>
+            <p
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "10px",
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                color: "var(--color-text-muted)",
+                margin: "0 0 4px 0",
+                opacity: 0.6,
+              }}
+            >
+              // typography
+            </p>
+            <h2
+              style={{
+                margin: 0,
+                fontSize: "16px",
+                fontWeight: 600,
+                color: "var(--color-text)",
+                fontFamily: "var(--font-sans)",
+                letterSpacing: "-0.03em",
+              }}
+            >
+              Typography
+            </h2>
+          </div>
+
+          {/* Code font */}
+          <div style={{ marginBottom: "28px" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                margin: "0 0 10px 0",
+              }}
+            >
+              <p
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "11px",
+                  color: "var(--color-text-muted)",
+                  margin: 0,
+                  letterSpacing: "0.03em",
+                }}
+              >
+                Code font
+              </p>
+              <FontSizeStepper
+                value={codeFontSize}
+                min={CODE_FONT_SIZE_MIN}
+                max={CODE_FONT_SIZE_MAX}
+                step={FONT_SIZE_STEP}
+                onChange={setCodeFontSize}
+              />
+            </div>
+            <FontPicker fonts={CODE_FONTS} selectedId={codeFontId} onSelect={setCodeFont} />
+          </div>
+
+          {/* Markdown preview font */}
+          <div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                margin: "0 0 10px 0",
+              }}
+            >
+              <p
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "11px",
+                  color: "var(--color-text-muted)",
+                  margin: 0,
+                  letterSpacing: "0.03em",
+                }}
+              >
+                Markdown preview font
+              </p>
+              <FontSizeStepper
+                value={markdownFontSize}
+                min={MARKDOWN_FONT_SIZE_MIN}
+                max={MARKDOWN_FONT_SIZE_MAX}
+                step={FONT_SIZE_STEP}
+                onChange={setMarkdownFontSize}
+              />
+            </div>
+            <FontPicker fonts={MARKDOWN_FONTS} selectedId={markdownFontId} onSelect={setMarkdownFont} />
+          </div>
+        </section>
+
+        {/* Divider */}
+        <div
+          style={{
+            height: "1px",
+            background: "var(--color-border)",
+            opacity: 0.5,
+            marginBottom: "48px",
+          }}
+        />
+
         {/* ── API Keys ── */}
         <section>
           <div style={{ marginBottom: "20px" }}>
@@ -586,6 +712,70 @@ export function Settings() {
         </section>
       </div>
     </>
+  );
+}
+
+function FontSizeStepper({
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (size: number) => void;
+}) {
+  const btnStyle = (disabled: boolean): React.CSSProperties => ({
+    width: "22px",
+    height: "22px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "transparent",
+    border: "1px solid var(--color-border)",
+    borderRadius: "4px",
+    cursor: disabled ? "not-allowed" : "pointer",
+    color: disabled ? "var(--color-text-muted)" : "var(--color-text)",
+    fontFamily: "var(--font-mono)",
+    fontSize: "13px",
+    lineHeight: 1,
+    opacity: disabled ? 0.4 : 1,
+    transition: "border-color 0.15s, opacity 0.15s",
+    padding: 0,
+    flexShrink: 0,
+  });
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+      <button
+        style={btnStyle(value <= min)}
+        disabled={value <= min}
+        onClick={() => onChange(value - step)}
+      >
+        −
+      </button>
+      <span
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "11px",
+          color: "var(--color-text-muted)",
+          minWidth: "32px",
+          textAlign: "center",
+        }}
+      >
+        {value}px
+      </span>
+      <button
+        style={btnStyle(value >= max)}
+        disabled={value >= max}
+        onClick={() => onChange(value + step)}
+      >
+        +
+      </button>
+    </div>
   );
 }
 
