@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import ReactMarkdown from "react-markdown";
 import SyntaxHighlighter from "react-syntax-highlighter";
@@ -7,6 +7,7 @@ import type { Snippet } from "@/types/snippet";
 import { api } from "@/lib/api";
 import { formatSize } from "@/lib/format-size";
 import { useTheme } from "@/hooks/useTheme";
+import { ZenOverlay } from "@/components/ui/ZenOverlay";
 
 export function ViewSnippet({ snippetId }: { snippetId: string }) {
   const navigate = useNavigate();
@@ -15,6 +16,8 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
   const [error, setError] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [zenOpen, setZenOpen] = useState(false);
+  const exitingRef = useRef(false);
   const { theme } = useTheme();
 
   useEffect(() => {
@@ -30,6 +33,20 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
+  };
+
+  const enterZen = () => {
+    exitingRef.current = false;
+    history.pushState({ zen: true }, "");
+    setZenOpen(true);
+  };
+
+  const exitZen = () => {
+    setZenOpen(false);
+    if (!exitingRef.current) {
+      exitingRef.current = true;
+      history.back();
+    }
   };
 
   if (loading) {
@@ -52,6 +69,7 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
   const highlighterStyle = theme.hljs;
 
   return (
+    <>
     <div style={{ background: "var(--color-bg)", minHeight: "100dvh", padding: "40px 24px" }}>
       <div style={{ maxWidth: "1200px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "28px" }}>
 
@@ -63,7 +81,8 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
           >
             ← back
           </Link>
-          <div style={{ display: "flex", gap: "8px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {/* Left group: view-mode + zen */}
             {snippet.language === "markdown" && (
               <button
                 onClick={() => setShowPreview((v) => !v)}
@@ -83,6 +102,42 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
                 {showPreview ? "source" : "preview"}
               </button>
             )}
+            <button
+              onClick={enterZen}
+              style={{
+                padding: "5px 12px",
+                background: "none",
+                border: "1px solid var(--color-border)",
+                borderRadius: "6px",
+                color: "var(--color-text-muted)",
+                fontFamily: "var(--font-mono)",
+                fontSize: "11px",
+                cursor: "pointer",
+                letterSpacing: "0.04em",
+                transition: "background 0.15s, border-color 0.15s, color 0.15s",
+              }}
+              onMouseEnter={(e) => {
+                const el = e.currentTarget as HTMLButtonElement;
+                el.style.background = "var(--color-accent-dim)";
+                el.style.borderColor = "var(--color-accent)";
+                el.style.color = "var(--color-accent)";
+              }}
+              onMouseLeave={(e) => {
+                const el = e.currentTarget as HTMLButtonElement;
+                el.style.background = "none";
+                el.style.borderColor = "var(--color-border)";
+                el.style.color = "var(--color-text-muted)";
+              }}
+            >
+              zen
+            </button>
+
+            {/* Divider — only when markdown toggle is present */}
+            {snippet.language === "markdown" && (
+              <div style={{ width: "1px", height: "18px", background: "var(--color-border)", opacity: 0.5 }} />
+            )}
+
+            {/* Right group: edit + copy */}
             <button
               onClick={() => navigate({ to: "/snippets/$snippetId/edit", params: { snippetId } })}
               style={{
@@ -180,5 +235,14 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
 
       </div>
     </div>
+
+    <ZenOverlay
+      open={zenOpen}
+      snippet={snippet}
+      showPreview={showPreview}
+      highlighterStyle={highlighterStyle}
+      onExit={exitZen}
+    />
+    </>
   );
 }
