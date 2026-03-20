@@ -7,6 +7,7 @@ import type { Snippet } from "@/types/snippet";
 import { api } from "@/lib/api";
 import { formatSize } from "@/lib/format-size";
 import { useTheme } from "@/hooks/useTheme";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { ZenOverlay } from "@/components/ui/ZenOverlay";
 
 export function ViewSnippet({ snippetId }: { snippetId: string }) {
@@ -19,6 +20,7 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
   const [zenOpen, setZenOpen] = useState(false);
   const exitingRef = useRef(false);
   const { theme } = useTheme();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     api.get<Snippet>(`/api/snippets/${snippetId}`)
@@ -77,7 +79,7 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <Link
             to="/"
-            style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--color-text-muted)", textDecoration: "none", letterSpacing: "0.04em" }}
+            style={{ fontFamily: "var(--font-mono)", fontSize: "13px", color: "var(--color-text-muted)", textDecoration: "none", letterSpacing: "0.04em" }}
           >
             ← back
           </Link>
@@ -87,13 +89,13 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
               <button
                 onClick={() => setShowPreview((v) => !v)}
                 style={{
-                  padding: "5px 12px",
+                  padding: "6px 16px",
                   background: showPreview ? "var(--color-accent-dim)" : "none",
                   border: `1px solid ${showPreview ? "var(--color-accent)" : "var(--color-border)"}`,
-                  borderRadius: "6px",
+                  borderRadius: "8px",
                   color: showPreview ? "var(--color-accent)" : "var(--color-text-muted)",
                   fontFamily: "var(--font-mono)",
-                  fontSize: "11px",
+                  fontSize: "13px",
                   cursor: "pointer",
                   letterSpacing: "0.04em",
                   transition: "background 0.15s, border-color 0.15s, color 0.15s",
@@ -105,13 +107,13 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
             <button
               onClick={enterZen}
               style={{
-                padding: "5px 12px",
+                padding: "6px 16px",
                 background: "none",
                 border: "1px solid var(--color-border)",
-                borderRadius: "6px",
+                borderRadius: "8px",
                 color: "var(--color-text-muted)",
                 fontFamily: "var(--font-mono)",
-                fontSize: "11px",
+                fontSize: "13px",
                 cursor: "pointer",
                 letterSpacing: "0.04em",
                 transition: "background 0.15s, border-color 0.15s, color 0.15s",
@@ -134,20 +136,20 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
 
             {/* Divider — only when markdown toggle is present */}
             {snippet.language === "markdown" && (
-              <div style={{ width: "1px", height: "18px", background: "var(--color-border)", opacity: 0.5 }} />
+              <div style={{ width: "1px", height: "20px", background: "var(--color-border)", opacity: 0.5 }} />
             )}
 
             {/* Right group: edit + copy */}
             <button
               onClick={() => navigate({ to: "/snippets/$snippetId/edit", params: { snippetId } })}
               style={{
-                padding: "5px 12px",
+                padding: "6px 16px",
                 background: "none",
                 border: "1px solid var(--color-border)",
-                borderRadius: "6px",
+                borderRadius: "8px",
                 color: "var(--color-text-muted)",
                 fontFamily: "var(--font-mono)",
-                fontSize: "11px",
+                fontSize: "13px",
                 cursor: "pointer",
                 letterSpacing: "0.04em",
                 transition: "background 0.15s, border-color 0.15s, color 0.15s",
@@ -170,13 +172,13 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
             <button
               onClick={handleCopy}
               style={{
-                padding: "5px 12px",
+                padding: "6px 16px",
                 background: "none",
                 border: "1px solid var(--color-accent)",
-                borderRadius: "6px",
+                borderRadius: "8px",
                 color: "var(--color-accent)",
                 fontFamily: "var(--font-mono)",
-                fontSize: "11px",
+                fontSize: "13px",
                 cursor: "pointer",
                 letterSpacing: "0.04em",
                 transition: "background 0.15s, opacity 0.15s",
@@ -194,11 +196,11 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
             <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 600, color: "var(--color-text)", fontFamily: "var(--font-sans)", letterSpacing: "-0.02em", lineHeight: 1.3, flex: 1, minWidth: 0 }}>
               {snippet.title}
             </h1>
-            <span style={{ display: "inline-flex", alignItems: "center", padding: "3px 9px", borderRadius: "5px", background: "var(--color-accent-dim)", color: "var(--color-accent)", fontFamily: "var(--font-mono)", fontSize: "11px", fontWeight: 500, letterSpacing: "0.03em", flexShrink: 0, marginTop: "4px" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", padding: "4px 12px", borderRadius: "8px", background: "var(--color-accent-dim)", color: "var(--color-accent)", fontFamily: "var(--font-mono)", fontSize: "13px", fontWeight: 500, letterSpacing: "0.03em", flexShrink: 0, marginTop: "4px" }}>
               {snippet.language}
             </span>
           </div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--color-text-muted)", opacity: 0.7, letterSpacing: "0.02em" }}>
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: "12px", color: "var(--color-text-muted)", opacity: 0.7, letterSpacing: "0.02em" }}>
             {formatSize(snippet.content)}
             <span style={{ margin: "0 6px", opacity: 0.4 }}>·</span>
             {new Date(snippet.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
@@ -212,8 +214,12 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
             style={{
               background: "var(--color-surface)",
               border: "1px solid var(--color-border)",
-              borderRadius: "12px",
-              padding: "24px 28px",
+              borderRadius: isMobile ? 0 : "12px",
+              borderLeft: isMobile ? "none" : "1px solid var(--color-border)",
+              borderRight: isMobile ? "none" : "1px solid var(--color-border)",
+              marginLeft: isMobile ? -24 : undefined,
+              marginRight: isMobile ? -24 : undefined,
+              padding: isMobile ? "24px 24px" : "24px 28px",
               fontFamily: "var(--font-markdown)",
             }}
           >
@@ -222,11 +228,19 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
             </ReactMarkdown>
           </div>
         ) : (
-          <div style={{ borderRadius: "12px", overflow: "hidden", border: "1px solid var(--color-border)" }}>
+          <div style={{
+            borderRadius: isMobile ? 0 : "12px",
+            overflow: "hidden",
+            border: "1px solid var(--color-border)",
+            borderLeft: isMobile ? "none" : "1px solid var(--color-border)",
+            borderRight: isMobile ? "none" : "1px solid var(--color-border)",
+            marginLeft: isMobile ? -24 : undefined,
+            marginRight: isMobile ? -24 : undefined,
+          }}>
             <SyntaxHighlighter
               language={snippet.language === "autodetect" ? undefined : snippet.language}
               style={highlighterStyle}
-              customStyle={{ background: "var(--color-surface)", fontFamily: "var(--font-mono)", fontSize: "var(--font-size-code)", lineHeight: "1.6", padding: "20px 24px", margin: 0, borderRadius: "12px" }}
+              customStyle={{ background: "var(--color-surface)", fontFamily: "var(--font-mono)", fontSize: "var(--font-size-code)", lineHeight: "1.6", padding: "20px 24px", margin: 0, borderRadius: isMobile ? 0 : "12px" }}
             >
               {snippet.content}
             </SyntaxHighlighter>

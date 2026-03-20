@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import SyntaxHighlighter from "react-syntax-highlighter";
@@ -10,7 +10,7 @@ interface ZenOverlayProps {
   open: boolean;
   snippet: Snippet;
   showPreview: boolean;
-  highlighterStyle: object;
+  highlighterStyle: { [key: string]: CSSProperties };
   onExit: () => void;
 }
 

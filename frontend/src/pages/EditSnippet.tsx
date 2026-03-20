@@ -3,7 +3,9 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { api } from "@/lib/api";
 import { LANGUAGES } from "@/lib/languages";
 import type { Snippet } from "@/types/snippet";
-import { FocusInput, FocusSelect, FocusTextarea } from "@/components/snippets/SnippetFormFields";
+import { FocusInput } from "@/components/snippets/SnippetFormFields";
+import { LanguageSearch } from "@/components/snippets/LanguageSearch";
+import { CodeEditor } from "@/components/snippets/CodeEditor";
 
 export function EditSnippet({ snippetId }: { snippetId: string }) {
   const navigate = useNavigate();
@@ -109,12 +111,12 @@ export function EditSnippet({ snippetId }: { snippetId: string }) {
             params={{ snippetId }}
             style={{
               fontFamily: "var(--font-mono)",
-              fontSize: "12px",
+              fontSize: "13px",
               color: "var(--color-text-muted)",
               textDecoration: "none",
-              padding: "6px 12px",
+              padding: "6px 16px",
               border: "1px solid var(--color-border)",
-              borderRadius: "7px",
+              borderRadius: "8px",
               transition: "color 0.15s, border-color 0.15s",
             }}
             onMouseEnter={(e) => {
@@ -170,13 +172,7 @@ export function EditSnippet({ snippetId }: { snippetId: string }) {
             >
               Language
             </label>
-            <FocusSelect value={language} onChange={(e) => setLanguage(e.target.value)}>
-              {LANGUAGES.map((lang) => (
-                <option key={lang} value={lang}>
-                  {lang}
-                </option>
-              ))}
-            </FocusSelect>
+            <LanguageSearch value={language} onChange={setLanguage} languages={LANGUAGES} />
           </div>
 
           {/* Content */}
@@ -192,12 +188,7 @@ export function EditSnippet({ snippetId }: { snippetId: string }) {
             >
               Content
             </label>
-            <FocusTextarea
-              placeholder="Paste your snippet here…"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              required
-            />
+            <CodeEditor value={content} onChange={setContent} language={language} />
           </div>
 
           {/* Error */}
