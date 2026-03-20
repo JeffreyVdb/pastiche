@@ -1,4 +1,4 @@
-import type { Extension } from "@codemirror/state";
+import type { Extension } from "@uiw/react-codemirror";
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
 import { html } from "@codemirror/lang-html";
