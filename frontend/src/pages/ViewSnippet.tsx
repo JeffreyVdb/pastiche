@@ -10,6 +10,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useSettings } from "@/hooks/useSettings";
 import { ZenOverlay } from "@/components/ui/ZenOverlay";
+import { OverflowMenu, type OverflowMenuItem } from "@/components/ui/OverflowMenu";
 
 export function ViewSnippet({ snippetId }: { snippetId: string }) {
   const navigate = useNavigate();
@@ -72,6 +73,29 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
 
   const highlighterStyle = theme.hljs;
 
+  const overflowItems: OverflowMenuItem[] = [
+    ...(snippet.language === "markdown"
+      ? [
+          {
+            label: showPreview ? "source" : "preview",
+            onClick: () => setShowPreview((v) => !v),
+            active: showPreview,
+          },
+        ]
+      : []),
+    { label: "zen", onClick: enterZen },
+    {
+      label: wordWrap ? "wrap: on" : "wrap: off",
+      onClick: () => setWordWrap(!wordWrap),
+      active: wordWrap,
+    },
+    {
+      label: "edit",
+      onClick: () =>
+        navigate({ to: "/snippets/$snippetId/edit", params: { snippetId } }),
+    },
+  ];
+
   return (
     <>
     <div style={{ background: "var(--color-bg)", minHeight: "100dvh", padding: "40px 24px" }}>
@@ -86,124 +110,152 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
             ← back
           </Link>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            {/* Left group: view-mode + zen */}
-            {snippet.language === "markdown" && (
-              <button
-                onClick={() => setShowPreview((v) => !v)}
-                style={{
-                  padding: "6px 16px",
-                  background: showPreview ? "var(--color-accent-dim)" : "none",
-                  border: `1px solid ${showPreview ? "var(--color-accent)" : "var(--color-border)"}`,
-                  borderRadius: "8px",
-                  color: showPreview ? "var(--color-accent)" : "var(--color-text-muted)",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "13px",
-                  cursor: "pointer",
-                  letterSpacing: "0.04em",
-                  transition: "background 0.15s, border-color 0.15s, color 0.15s",
-                }}
-              >
-                {showPreview ? "source" : "preview"}
-              </button>
+            {isMobile ? (
+              <>
+                {/* Mobile: copy visible, everything else in overflow */}
+                <button
+                  onClick={handleCopy}
+                  style={{
+                    padding: "8px 18px",
+                    background: "none",
+                    border: "1px solid var(--color-accent)",
+                    borderRadius: "8px",
+                    color: "var(--color-accent)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    letterSpacing: "0.04em",
+                    transition: "background 0.15s, opacity 0.15s",
+                    opacity: copied ? 0.7 : 1,
+                  }}
+                >
+                  {copied ? "copied!" : "copy"}
+                </button>
+                <OverflowMenu items={overflowItems} />
+              </>
+            ) : (
+              <>
+                {/* Desktop: existing flat layout */}
+                {/* Left group: view-mode + zen */}
+                {snippet.language === "markdown" && (
+                  <button
+                    onClick={() => setShowPreview((v) => !v)}
+                    style={{
+                      padding: "6px 16px",
+                      background: showPreview ? "var(--color-accent-dim)" : "none",
+                      border: `1px solid ${showPreview ? "var(--color-accent)" : "var(--color-border)"}`,
+                      borderRadius: "8px",
+                      color: showPreview ? "var(--color-accent)" : "var(--color-text-muted)",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "13px",
+                      cursor: "pointer",
+                      letterSpacing: "0.04em",
+                      transition: "background 0.15s, border-color 0.15s, color 0.15s",
+                    }}
+                  >
+                    {showPreview ? "source" : "preview"}
+                  </button>
+                )}
+                <button
+                  onClick={enterZen}
+                  style={{
+                    padding: "6px 16px",
+                    background: "none",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: "8px",
+                    color: "var(--color-text-muted)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    letterSpacing: "0.04em",
+                    transition: "background 0.15s, border-color 0.15s, color 0.15s",
+                  }}
+                  onMouseEnter={(e) => {
+                    const el = e.currentTarget as HTMLButtonElement;
+                    el.style.background = "var(--color-accent-dim)";
+                    el.style.borderColor = "var(--color-accent)";
+                    el.style.color = "var(--color-accent)";
+                  }}
+                  onMouseLeave={(e) => {
+                    const el = e.currentTarget as HTMLButtonElement;
+                    el.style.background = "none";
+                    el.style.borderColor = "var(--color-border)";
+                    el.style.color = "var(--color-text-muted)";
+                  }}
+                >
+                  zen
+                </button>
+                <button
+                  onClick={() => setWordWrap(!wordWrap)}
+                  style={{
+                    padding: "6px 16px",
+                    background: wordWrap ? "var(--color-accent-dim)" : "none",
+                    border: `1px solid ${wordWrap ? "var(--color-accent)" : "var(--color-border)"}`,
+                    borderRadius: "8px",
+                    color: wordWrap ? "var(--color-accent)" : "var(--color-text-muted)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    letterSpacing: "0.04em",
+                    transition: "background 0.15s, border-color 0.15s, color 0.15s",
+                  }}
+                >
+                  wrap
+                </button>
+
+                {/* Divider */}
+                <div style={{ width: "1px", height: "20px", background: "var(--color-border)", opacity: 0.5 }} />
+
+                {/* Right group: edit + copy */}
+                <button
+                  onClick={() => navigate({ to: "/snippets/$snippetId/edit", params: { snippetId } })}
+                  style={{
+                    padding: "6px 16px",
+                    background: "none",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: "8px",
+                    color: "var(--color-text-muted)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    letterSpacing: "0.04em",
+                    transition: "background 0.15s, border-color 0.15s, color 0.15s",
+                  }}
+                  onMouseEnter={(e) => {
+                    const el = e.currentTarget as HTMLButtonElement;
+                    el.style.background = "var(--color-accent-dim)";
+                    el.style.borderColor = "var(--color-accent)";
+                    el.style.color = "var(--color-accent)";
+                  }}
+                  onMouseLeave={(e) => {
+                    const el = e.currentTarget as HTMLButtonElement;
+                    el.style.background = "none";
+                    el.style.borderColor = "var(--color-border)";
+                    el.style.color = "var(--color-text-muted)";
+                  }}
+                >
+                  edit
+                </button>
+                <button
+                  onClick={handleCopy}
+                  style={{
+                    padding: "6px 16px",
+                    background: "none",
+                    border: "1px solid var(--color-accent)",
+                    borderRadius: "8px",
+                    color: "var(--color-accent)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    letterSpacing: "0.04em",
+                    transition: "background 0.15s, opacity 0.15s",
+                    opacity: copied ? 0.7 : 1,
+                  }}
+                >
+                  {copied ? "copied!" : "copy"}
+                </button>
+              </>
             )}
-            <button
-              onClick={enterZen}
-              style={{
-                padding: "6px 16px",
-                background: "none",
-                border: "1px solid var(--color-border)",
-                borderRadius: "8px",
-                color: "var(--color-text-muted)",
-                fontFamily: "var(--font-mono)",
-                fontSize: "13px",
-                cursor: "pointer",
-                letterSpacing: "0.04em",
-                transition: "background 0.15s, border-color 0.15s, color 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                const el = e.currentTarget as HTMLButtonElement;
-                el.style.background = "var(--color-accent-dim)";
-                el.style.borderColor = "var(--color-accent)";
-                el.style.color = "var(--color-accent)";
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget as HTMLButtonElement;
-                el.style.background = "none";
-                el.style.borderColor = "var(--color-border)";
-                el.style.color = "var(--color-text-muted)";
-              }}
-            >
-              zen
-            </button>
-            <button
-              onClick={() => setWordWrap(!wordWrap)}
-              style={{
-                padding: "6px 16px",
-                background: wordWrap ? "var(--color-accent-dim)" : "none",
-                border: `1px solid ${wordWrap ? "var(--color-accent)" : "var(--color-border)"}`,
-                borderRadius: "8px",
-                color: wordWrap ? "var(--color-accent)" : "var(--color-text-muted)",
-                fontFamily: "var(--font-mono)",
-                fontSize: "13px",
-                cursor: "pointer",
-                letterSpacing: "0.04em",
-                transition: "background 0.15s, border-color 0.15s, color 0.15s",
-              }}
-            >
-              wrap
-            </button>
-
-            {/* Divider */}
-            <div style={{ width: "1px", height: "20px", background: "var(--color-border)", opacity: 0.5 }} />
-
-            {/* Right group: edit + copy */}
-            <button
-              onClick={() => navigate({ to: "/snippets/$snippetId/edit", params: { snippetId } })}
-              style={{
-                padding: "6px 16px",
-                background: "none",
-                border: "1px solid var(--color-border)",
-                borderRadius: "8px",
-                color: "var(--color-text-muted)",
-                fontFamily: "var(--font-mono)",
-                fontSize: "13px",
-                cursor: "pointer",
-                letterSpacing: "0.04em",
-                transition: "background 0.15s, border-color 0.15s, color 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                const el = e.currentTarget as HTMLButtonElement;
-                el.style.background = "var(--color-accent-dim)";
-                el.style.borderColor = "var(--color-accent)";
-                el.style.color = "var(--color-accent)";
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget as HTMLButtonElement;
-                el.style.background = "none";
-                el.style.borderColor = "var(--color-border)";
-                el.style.color = "var(--color-text-muted)";
-              }}
-            >
-              edit
-            </button>
-            <button
-              onClick={handleCopy}
-              style={{
-                padding: "6px 16px",
-                background: "none",
-                border: "1px solid var(--color-accent)",
-                borderRadius: "8px",
-                color: "var(--color-accent)",
-                fontFamily: "var(--font-mono)",
-                fontSize: "13px",
-                cursor: "pointer",
-                letterSpacing: "0.04em",
-                transition: "background 0.15s, opacity 0.15s",
-                opacity: copied ? 0.7 : 1,
-              }}
-            >
-              {copied ? "copied!" : "copy"}
-            </button>
           </div>
         </div>
 
