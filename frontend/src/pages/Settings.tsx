@@ -16,6 +16,7 @@ import {
   MARKDOWN_FONT_SIZE_MIN,
 } from "@/lib/fonts";
 import type { ApiKey, ApiKeyCreated } from "@/types/api-key";
+import type { PaginatedResponse } from "@/types/pagination";
 
 const CODE_PREVIEWS: { language: string; label: string; code: string }[] = [
   {
@@ -116,11 +117,12 @@ export function Settings() {
   const [revealedKey, setRevealedKey] = useState<ApiKeyCreated | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const fetchKeys = useCallback(async () => {
+  const fetchKeys = useCallback(async (signal?: AbortSignal) => {
     try {
-      const data = await api.get<ApiKey[]>("/api/keys");
-      setKeys(data);
-    } catch {
+      const data = await api.get<PaginatedResponse<ApiKey>>("/api/keys", { signal });
+      setKeys(data.items);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       // silent
     } finally {
       setKeysLoading(false);
@@ -128,7 +130,9 @@ export function Settings() {
   }, []);
 
   useEffect(() => {
-    fetchKeys();
+    const controller = new AbortController();
+    fetchKeys(controller.signal);
+    return () => controller.abort();
   }, [fetchKeys]);
 
   async function handleCreate(e: React.FormEvent) {

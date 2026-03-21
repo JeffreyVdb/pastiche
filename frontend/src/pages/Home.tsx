@@ -1,43 +1,85 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 import { api } from "@/lib/api";
-import type { Snippet } from "@/types/snippet";
+import type { SnippetListItem } from "@/types/snippet";
+import type { PaginatedResponse } from "@/types/pagination";
 import { groupSnippetsByDate } from "@/lib/date-groups";
 import { SnippetCard } from "@/components/snippets/SnippetCard";
+import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
+
+const PAGE_SIZE = 25;
 
 export function Home() {
   const { user } = useAuth();
   const { resolved } = useTheme();
-  const [snippets, setSnippets] = useState<Snippet[]>([]);
+  const [snippets, setSnippets] = useState<SnippetListItem[]>([]);
   const [snippetsLoading, setSnippetsLoading] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const fetchSnippets = useCallback(async () => {
+  const fetchSnippets = useCallback(async (fetchOffset: number, signal?: AbortSignal) => {
+    setFetchError(null);
+    if (fetchOffset > 0) setLoadingMore(true);
     try {
-      const data = await api.get<Snippet[]>("/api/snippets");
-      setSnippets(data);
-    } catch {
-      // silent — keep existing state
+      const data = await api.get<PaginatedResponse<SnippetListItem>>(
+        `/api/snippets?limit=${PAGE_SIZE}&offset=${fetchOffset}`,
+        { signal }
+      );
+      if (fetchOffset === 0) {
+        setSnippets(data.items);
+      } else {
+        setSnippets((prev) => [...prev, ...data.items]);
+      }
+      setTotal(data.total);
+      setOffset(fetchOffset + data.items.length);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setFetchError("Failed to load snippets. Please try again.");
     } finally {
       setSnippetsLoading(false);
+      setLoadingMore(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchSnippets();
+    const controller = new AbortController();
+    fetchSnippets(0, controller.signal);
+    return () => controller.abort();
   }, [fetchSnippets]);
 
   async function handleDelete(id: string) {
     const previous = snippets;
+    const previousTotal = total;
+    const previousOffset = offset;
     setSnippets((prev) => prev.filter((s) => s.id !== id));
+    setTotal((prev) => prev - 1);
+    setOffset((prev) => prev - 1);
     try {
       await api.delete(`/api/snippets/${id}`);
     } catch {
       setSnippets(previous);
-      await fetchSnippets();
+      setTotal(previousTotal);
+      setOffset(previousOffset);
+      await fetchSnippets(0);
     }
   }
+
+  const hasMore = offset < total;
+
+  const loadNextPage = useCallback(() => {
+    if (loadingMore || fetchError) return;
+    fetchSnippets(offset);
+  }, [loadingMore, fetchError, offset, fetchSnippets]);
+
+  const sentinelRef = useIntersectionObserver({
+    onIntersect: loadNextPage,
+    enabled: hasMore && !loadingMore && !fetchError && !snippetsLoading,
+    rootMargin: "200px",
+  });
 
   // Loading state
   if (snippetsLoading) {
@@ -252,7 +294,7 @@ export function Home() {
   }
 
   // Populated state
-  const groups = groupSnippetsByDate(snippets);
+  const groups = useMemo(() => groupSnippetsByDate(snippets), [snippets]);
 
   return (
     <div
@@ -405,6 +447,104 @@ export function Home() {
           </section>
         ))}
       </div>
+
+      {/* Sentinel for infinite scroll — invisible trigger element */}
+      {hasMore && !fetchError && (
+        <div ref={sentinelRef} style={{ height: "1px", width: "100%" }} aria-hidden="true" />
+      )}
+
+      {/* Loading spinner for next page */}
+      {loadingMore && (
+        <div style={{ display: "flex", justifyContent: "center", padding: "24px 0" }}>
+          <div
+            style={{
+              width: "20px",
+              height: "20px",
+              border: "2px solid var(--color-border)",
+              borderTopColor: "var(--color-accent)",
+              borderRadius: "50%",
+              animation: "spin 0.8s linear infinite",
+            }}
+          />
+        </div>
+      )}
+
+      {/* Error with retry */}
+      {fetchError && (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "12px",
+            padding: "24px 0",
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontSize: "13px",
+              color: "var(--color-text-muted)",
+              fontFamily: "var(--font-sans)",
+            }}
+          >
+            {fetchError}
+          </p>
+          <button
+            onClick={() => {
+              setFetchError(null);
+              fetchSnippets(offset);
+            }}
+            style={{
+              padding: "8px 16px",
+              background: "transparent",
+              color: "var(--color-accent)",
+              border: "1px solid var(--color-accent)",
+              borderRadius: "8px",
+              fontFamily: "var(--font-sans)",
+              fontSize: "13px",
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "opacity 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.opacity = "0.7";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.opacity = "1";
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* End of list */}
+      {!hasMore && snippets.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "10px",
+            padding: "32px 0 16px",
+          }}
+        >
+          <div style={{ flex: 1, maxWidth: "80px", height: "1px", background: "var(--color-border)", opacity: 0.5 }} />
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: "11px",
+              color: "var(--color-text-muted)",
+              opacity: 0.5,
+              letterSpacing: "0.05em",
+            }}
+          >
+            end
+          </span>
+          <div style={{ flex: 1, maxWidth: "80px", height: "1px", background: "var(--color-border)", opacity: 0.5 }} />
+        </div>
+      )}
     </div>
   );
 }

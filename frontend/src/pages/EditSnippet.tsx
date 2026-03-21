@@ -18,14 +18,19 @@ export function EditSnippet({ snippetId }: { snippetId: string }) {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    api.get<Snippet>(`/api/snippets/${snippetId}`)
+    const controller = new AbortController();
+    api.get<Snippet>(`/api/snippets/${snippetId}`, { signal: controller.signal })
       .then((snippet) => {
         setTitle(snippet.title);
         setLanguage(snippet.language);
         setContent(snippet.content);
       })
-      .catch(() => setNotFound(true))
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setNotFound(true);
+      })
       .finally(() => setLoading(false));
+    return () => controller.abort();
   }, [snippetId]);
 
   async function handleSubmit(e: React.FormEvent) {

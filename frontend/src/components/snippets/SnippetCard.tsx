@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import type { Snippet } from "@/types/snippet";
+import type { SnippetListItem } from "@/types/snippet";
 import { formatSize } from "@/lib/format-size";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 interface SnippetCardProps {
-  snippet: Snippet;
+  snippet: SnippetListItem;
   onDelete: (id: string) => void;
 }
 
@@ -109,7 +109,7 @@ export function SnippetCard({ snippet, onDelete }: SnippetCardProps) {
           letterSpacing: "0.02em",
         }}
       >
-        {formatSize(snippet.content)}
+        {formatSize(snippet.content_size)}
         <span style={{ margin: "0 6px", opacity: 0.4 }}>·</span>
         {new Date(snippet.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
       </div>

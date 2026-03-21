@@ -3,6 +3,7 @@ import secrets
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -31,11 +32,23 @@ async def create_api_key(
     return api_key, plaintext
 
 
-async def list_api_keys_by_user(session: AsyncSession, user_id: uuid.UUID) -> list[ApiKey]:
-    result = await session.execute(
-        select(ApiKey).where(ApiKey.user_id == user_id).order_by(ApiKey.created_at.desc())
+async def list_api_keys_by_user(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[ApiKey], int]:
+    total = await session.scalar(
+        select(func.count()).select_from(ApiKey).where(ApiKey.user_id == user_id)
     )
-    return list(result.scalars().all())
+    result = await session.execute(
+        select(ApiKey)
+        .where(ApiKey.user_id == user_id)
+        .order_by(ApiKey.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    return list(result.scalars().all()), total or 0
 
 
 async def get_api_key_by_id(session: AsyncSession, key_id: uuid.UUID) -> ApiKey | None:

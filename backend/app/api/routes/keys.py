@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models.api_key import ApiKeyCreate, ApiKeyCreated, ApiKeyRead
+from app.models.pagination import PaginatedResponse, PaginationLimit, PaginationOffset
 from app.services.api_key_service import (
     create_api_key,
     delete_api_key,
@@ -24,10 +25,20 @@ async def create(body: ApiKeyCreate, current_user: CurrentUser, session: Session
     return ApiKeyCreated(**ApiKeyRead.model_validate(api_key).model_dump(), key=plaintext)
 
 
-@router.get("", response_model=list[ApiKeyRead])
-async def list_keys(current_user: CurrentUser, session: SessionDep) -> list[ApiKeyRead]:
-    keys = await list_api_keys_by_user(session=session, user_id=current_user.id)
-    return [ApiKeyRead.model_validate(k) for k in keys]
+@router.get("", response_model=PaginatedResponse[ApiKeyRead])
+async def list_keys(
+    current_user: CurrentUser,
+    session: SessionDep,
+    limit: PaginationLimit = 50,
+    offset: PaginationOffset = 0,
+) -> PaginatedResponse[ApiKeyRead]:
+    keys, total = await list_api_keys_by_user(session=session, user_id=current_user.id, limit=limit, offset=offset)
+    return PaginatedResponse(
+        items=[ApiKeyRead.model_validate(k) for k in keys],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.delete("/{key_id}", status_code=status.HTTP_204_NO_CONTENT)

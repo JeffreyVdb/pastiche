@@ -26,10 +26,15 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
   const { wordWrap, setWordWrap } = useSettings();
 
   useEffect(() => {
-    api.get<Snippet>(`/api/snippets/${snippetId}`)
+    const controller = new AbortController();
+    api.get<Snippet>(`/api/snippets/${snippetId}`, { signal: controller.signal })
       .then(setSnippet)
-      .catch(() => setError(true))
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError(true);
+      })
       .finally(() => setLoading(false));
+    return () => controller.abort();
   }, [snippetId]);
 
   const handleCopy = () => {

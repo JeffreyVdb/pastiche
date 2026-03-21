@@ -1,10 +1,11 @@
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import asc, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.models.snippet import Snippet
+from app.models.snippet import Snippet, SnippetSortField
 
 
 async def create_snippet(
@@ -21,11 +22,36 @@ async def create_snippet(
     return snippet
 
 
-async def list_snippets_by_user(session: AsyncSession, user_id: uuid.UUID) -> list[Snippet]:
-    result = await session.execute(
-        select(Snippet).where(Snippet.user_id == user_id).order_by(Snippet.created_at.desc())
+async def list_snippets_by_user(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    sort_by: SnippetSortField = SnippetSortField.created_at,
+    order: str = "desc",
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[dict], int]:
+    total = await session.scalar(
+        select(func.count()).select_from(Snippet).where(Snippet.user_id == user_id)
     )
-    return list(result.scalars().all())
+    sort_column = getattr(Snippet, sort_by.value)
+    order_expr = desc(sort_column) if order == "desc" else asc(sort_column)
+    stmt = (
+        select(
+            Snippet.id,
+            Snippet.user_id,
+            Snippet.title,
+            Snippet.language,
+            func.octet_length(Snippet.content).label("content_size"),
+            Snippet.created_at,
+            Snippet.updated_at,
+        )
+        .where(Snippet.user_id == user_id)
+        .order_by(order_expr)
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await session.execute(stmt)
+    return [row._asdict() for row in result.all()], total or 0
 
 
 async def get_snippet_by_id(session: AsyncSession, snippet_id: uuid.UUID) -> Snippet | None:

@@ -1,5 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlmodel import SQLModel
 
@@ -11,7 +12,13 @@ TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 @pytest.fixture
 def test_engine():
-    return create_async_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
+    engine = create_async_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def register_sqlite_functions(dbapi_conn, _connection_record):
+        dbapi_conn.create_function("octet_length", 1, lambda s: len(s.encode("utf-8")) if s else 0)
+
+    return engine
 
 
 @pytest.fixture

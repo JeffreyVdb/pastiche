@@ -1,9 +1,11 @@
 import uuid
+from typing import Literal
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 
 from app.api.deps import CurrentUser, SessionDep
-from app.models.snippet import SnippetCreate, SnippetRead, SnippetUpdate
+from app.models.pagination import PaginatedResponse, PaginationLimit, PaginationOffset
+from app.models.snippet import SnippetCreate, SnippetListRead, SnippetRead, SnippetSortField, SnippetUpdate
 from app.services.snippet_service import (
     create_snippet,
     delete_snippet,
@@ -27,10 +29,24 @@ async def create(body: SnippetCreate, current_user: CurrentUser, session: Sessio
     return SnippetRead.model_validate(snippet)
 
 
-@router.get("", response_model=list[SnippetRead])
-async def list_mine(current_user: CurrentUser, session: SessionDep) -> list[SnippetRead]:
-    snippets = await list_snippets_by_user(session=session, user_id=current_user.id)
-    return [SnippetRead.model_validate(s) for s in snippets]
+@router.get("", response_model=PaginatedResponse[SnippetListRead])
+async def list_mine(
+    current_user: CurrentUser,
+    session: SessionDep,
+    sort_by: SnippetSortField = Query(default=SnippetSortField.created_at),
+    order: Literal["asc", "desc"] = Query(default="desc"),
+    limit: PaginationLimit = 50,
+    offset: PaginationOffset = 0,
+) -> PaginatedResponse[SnippetListRead]:
+    rows, total = await list_snippets_by_user(
+        session=session, user_id=current_user.id, sort_by=sort_by, order=order, limit=limit, offset=offset
+    )
+    return PaginatedResponse(
+        items=[SnippetListRead.model_validate(r) for r in rows],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/{snippet_id}", response_model=SnippetRead)

@@ -1,11 +1,11 @@
-import type { Snippet } from "@/types/snippet";
+import type { SnippetListItem } from "@/types/snippet";
 
 export interface SnippetGroup {
   label: string;
-  snippets: Snippet[];
+  snippets: SnippetListItem[];
 }
 
-export function groupSnippetsByDate(snippets: Snippet[]): SnippetGroup[] {
+export function groupSnippetsByDate(snippets: SnippetListItem[]): SnippetGroup[] {
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfLastWeek = new Date(startOfToday.getTime() - 7 * 24 * 60 * 60 * 1000);
