@@ -23,10 +23,12 @@ interface SettingsContextValue {
   markdownFontId: string;
   codeFontSize: number;
   markdownFontSize: number;
+  wordWrap: boolean;
   setCodeFont: (id: string) => void;
   setMarkdownFont: (id: string) => void;
   setCodeFontSize: (size: number) => void;
   setMarkdownFontSize: (size: number) => void;
+  setWordWrap: (wrap: boolean) => void;
 }
 
 export const SettingsContext = createContext<SettingsContextValue>({
@@ -34,10 +36,12 @@ export const SettingsContext = createContext<SettingsContextValue>({
   markdownFontId: DEFAULT_MARKDOWN_FONT_ID,
   codeFontSize: DEFAULT_CODE_FONT_SIZE,
   markdownFontSize: DEFAULT_MARKDOWN_FONT_SIZE,
+  wordWrap: false,
   setCodeFont: () => {},
   setMarkdownFont: () => {},
   setCodeFontSize: () => {},
   setMarkdownFontSize: () => {},
+  setWordWrap: () => {},
 });
 
 const STORAGE_KEY = "pastiche-settings";
@@ -47,6 +51,7 @@ interface StoredSettings {
   markdownFont?: string;
   codeFontSize?: number;
   markdownFontSize?: number;
+  wordWrap?: boolean;
 }
 
 function loadSettings(): StoredSettings {
@@ -95,6 +100,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     return stored.markdownFontSize ?? DEFAULT_MARKDOWN_FONT_SIZE;
   });
 
+  const [wordWrap, setWordWrapState] = useState<boolean>(() => {
+    const stored = loadSettings();
+    return stored.wordWrap ?? window.matchMedia("(max-width: 640px)").matches;
+  });
+
   useEffect(() => {
     const codeFont = getFontById(CODE_FONTS, codeFontId);
     const markdownFont = getFontById(MARKDOWN_FONTS, markdownFontId);
@@ -127,18 +137,26 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...stored, markdownFontSize: size }));
   }, []);
 
+  const setWordWrap = useCallback((wrap: boolean) => {
+    setWordWrapState(wrap);
+    const stored = loadSettings();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...stored, wordWrap: wrap }));
+  }, []);
+
   const value = useMemo(
     () => ({
       codeFontId,
       markdownFontId,
       codeFontSize,
       markdownFontSize,
+      wordWrap,
       setCodeFont,
       setMarkdownFont,
       setCodeFontSize,
       setMarkdownFontSize,
+      setWordWrap,
     }),
-    [codeFontId, markdownFontId, codeFontSize, markdownFontSize, setCodeFont, setMarkdownFont, setCodeFontSize, setMarkdownFontSize],
+    [codeFontId, markdownFontId, codeFontSize, markdownFontSize, wordWrap, setCodeFont, setMarkdownFont, setCodeFontSize, setMarkdownFontSize, setWordWrap],
   );
 
   return (

@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import CodeMirror from "@uiw/react-codemirror";
+import CodeMirror, { EditorView } from "@uiw/react-codemirror";
 import { createTheme } from "@uiw/codemirror-themes";
 import { getLanguageExtension } from "@/lib/codemirror-langs";
+import { useSettings } from "@/hooks/useSettings";
 
 const darkTheme = createTheme({
   theme: "dark",
@@ -27,10 +28,13 @@ interface CodeEditorProps {
 }
 
 export function CodeEditor({ value, onChange, language }: CodeEditorProps) {
+  const { wordWrap } = useSettings();
   const extensions = useMemo(() => {
     const ext = getLanguageExtension(language);
-    return ext ? [ext] : [];
-  }, [language]);
+    const exts = ext ? [ext] : [];
+    if (wordWrap) exts.push(EditorView.lineWrapping);
+    return exts;
+  }, [language, wordWrap]);
 
   return (
     <CodeMirror

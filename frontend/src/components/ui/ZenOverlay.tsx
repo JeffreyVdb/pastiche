@@ -5,6 +5,7 @@ import SyntaxHighlighter from "react-syntax-highlighter";
 import remarkGfm from "remark-gfm";
 import type { Snippet } from "@/types/snippet";
 import { useIsMobile } from "../../hooks/useIsMobile";
+import { useSettings } from "../../hooks/useSettings";
 
 interface ZenOverlayProps {
   open: boolean;
@@ -25,6 +26,7 @@ export function ZenOverlay({
   const [closing, setClosing] = useState(false);
   const closingRef = useRef(false);
   const isMobile = useIsMobile();
+  const { wordWrap } = useSettings();
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const exitingRef = useRef(false);
 
@@ -197,6 +199,7 @@ export function ZenOverlay({
           <SyntaxHighlighter
             language={snippet.language === "autodetect" ? undefined : snippet.language}
             style={highlighterStyle}
+            wrapLongLines={wordWrap}
             customStyle={{
               background: "var(--color-surface)",
               fontFamily: "var(--font-mono)",

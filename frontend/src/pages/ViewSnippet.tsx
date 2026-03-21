@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { formatSize } from "@/lib/format-size";
 import { useTheme } from "@/hooks/useTheme";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useSettings } from "@/hooks/useSettings";
 import { ZenOverlay } from "@/components/ui/ZenOverlay";
 
 export function ViewSnippet({ snippetId }: { snippetId: string }) {
@@ -21,6 +22,7 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
   const exitingRef = useRef(false);
   const { theme } = useTheme();
   const isMobile = useIsMobile();
+  const { wordWrap, setWordWrap } = useSettings();
 
   useEffect(() => {
     api.get<Snippet>(`/api/snippets/${snippetId}`)
@@ -133,11 +135,26 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
             >
               zen
             </button>
+            <button
+              onClick={() => setWordWrap(!wordWrap)}
+              style={{
+                padding: "6px 16px",
+                background: wordWrap ? "var(--color-accent-dim)" : "none",
+                border: `1px solid ${wordWrap ? "var(--color-accent)" : "var(--color-border)"}`,
+                borderRadius: "8px",
+                color: wordWrap ? "var(--color-accent)" : "var(--color-text-muted)",
+                fontFamily: "var(--font-mono)",
+                fontSize: "13px",
+                cursor: "pointer",
+                letterSpacing: "0.04em",
+                transition: "background 0.15s, border-color 0.15s, color 0.15s",
+              }}
+            >
+              wrap
+            </button>
 
-            {/* Divider — only when markdown toggle is present */}
-            {snippet.language === "markdown" && (
-              <div style={{ width: "1px", height: "20px", background: "var(--color-border)", opacity: 0.5 }} />
-            )}
+            {/* Divider */}
+            <div style={{ width: "1px", height: "20px", background: "var(--color-border)", opacity: 0.5 }} />
 
             {/* Right group: edit + copy */}
             <button
@@ -231,6 +248,7 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
           <div style={{
             borderRadius: isMobile ? 0 : "12px",
             overflow: "hidden",
+            overflowX: wordWrap ? "hidden" : undefined,
             border: "1px solid var(--color-border)",
             borderLeft: isMobile ? "none" : "1px solid var(--color-border)",
             borderRight: isMobile ? "none" : "1px solid var(--color-border)",
@@ -240,6 +258,7 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
             <SyntaxHighlighter
               language={snippet.language === "autodetect" ? undefined : snippet.language}
               style={highlighterStyle}
+              wrapLongLines={wordWrap}
               customStyle={{ background: "var(--color-surface)", fontFamily: "var(--font-mono)", fontSize: "var(--font-size-code)", lineHeight: "1.6", padding: "20px 24px", margin: 0, borderRadius: isMobile ? 0 : "12px" }}
             >
               {snippet.content}
