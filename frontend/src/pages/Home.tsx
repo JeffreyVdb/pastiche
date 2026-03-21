@@ -81,6 +81,9 @@ export function Home() {
     rootMargin: "200px",
   });
 
+  // Must be before early returns — hooks cannot be called after conditional returns
+  const groups = useMemo(() => groupSnippetsByDate(snippets), [snippets]);
+
   // Loading state
   if (snippetsLoading) {
     return (
@@ -294,8 +297,6 @@ export function Home() {
   }
 
   // Populated state
-  const groups = useMemo(() => groupSnippetsByDate(snippets), [snippets]);
-
   return (
     <div
       style={{
