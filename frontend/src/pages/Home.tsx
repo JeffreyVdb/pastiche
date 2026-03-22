@@ -14,6 +14,8 @@ const PAGE_SIZE = 25;
 export function Home() {
   const { user } = useAuth();
   const { resolved } = useTheme();
+
+  // Regular (unpinned) snippets — paginated
   const [snippets, setSnippets] = useState<SnippetListItem[]>([]);
   const [snippetsLoading, setSnippetsLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -21,12 +23,31 @@ export function Home() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
+  // Pinned snippets — all loaded upfront
+  const [pinnedSnippets, setPinnedSnippets] = useState<SnippetListItem[]>([]);
+  const [pinnedLoading, setPinnedLoading] = useState(true);
+
+  const fetchPinnedSnippets = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const data = await api.get<PaginatedResponse<SnippetListItem>>(
+        `/api/snippets?pinned=true&limit=100`,
+        { signal }
+      );
+      setPinnedSnippets(data.items);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      // Silently fail — pinned section simply won't render
+    } finally {
+      setPinnedLoading(false);
+    }
+  }, []);
+
   const fetchSnippets = useCallback(async (fetchOffset: number, signal?: AbortSignal) => {
     setFetchError(null);
     if (fetchOffset > 0) setLoadingMore(true);
     try {
       const data = await api.get<PaginatedResponse<SnippetListItem>>(
-        `/api/snippets?limit=${PAGE_SIZE}&offset=${fetchOffset}`,
+        `/api/snippets?pinned=false&limit=${PAGE_SIZE}&offset=${fetchOffset}`,
         { signal }
       );
       if (fetchOffset === 0) {
@@ -47,24 +68,79 @@ export function Home() {
 
   useEffect(() => {
     const controller = new AbortController();
+    fetchPinnedSnippets(controller.signal);
     fetchSnippets(0, controller.signal);
     return () => controller.abort();
-  }, [fetchSnippets]);
+  }, [fetchPinnedSnippets, fetchSnippets]);
 
   async function handleDelete(id: string) {
+    const inPinned = pinnedSnippets.some((s) => s.id === id);
+    const prevPinned = pinnedSnippets;
     const previous = snippets;
     const previousTotal = total;
     const previousOffset = offset;
-    setSnippets((prev) => prev.filter((s) => s.id !== id));
-    setTotal((prev) => prev - 1);
-    setOffset((prev) => prev - 1);
+
+    if (inPinned) {
+      setPinnedSnippets((prev) => prev.filter((s) => s.id !== id));
+    } else {
+      setSnippets((prev) => prev.filter((s) => s.id !== id));
+      setTotal((prev) => prev - 1);
+      setOffset((prev) => prev - 1);
+    }
+
     try {
       await api.delete(`/api/snippets/${id}`);
     } catch {
+      setPinnedSnippets(prevPinned);
       setSnippets(previous);
       setTotal(previousTotal);
       setOffset(previousOffset);
       await fetchSnippets(0);
+    }
+  }
+
+  async function handleTogglePin(id: string) {
+    const inPinned = pinnedSnippets.find((s) => s.id === id);
+    const inRegular = snippets.find((s) => s.id === id);
+    const snippet = inPinned ?? inRegular;
+    if (!snippet) return;
+
+    const prevPinned = pinnedSnippets;
+    const prevSnippets = snippets;
+    const prevTotal = total;
+    const prevOffset = offset;
+
+    if (inPinned) {
+      // Unpinning: move from pinned → regular list
+      const unpinned = { ...snippet, is_pinned: false };
+      setPinnedSnippets((prev) => prev.filter((s) => s.id !== id));
+      setSnippets((prev) =>
+        [unpinned, ...prev].sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+      );
+      setTotal((prev) => prev + 1);
+      setOffset((prev) => prev + 1);
+    } else {
+      // Pinning: move from regular → pinned list
+      const pinned = { ...snippet, is_pinned: true };
+      setSnippets((prev) => prev.filter((s) => s.id !== id));
+      setPinnedSnippets((prev) =>
+        [pinned, ...prev].sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+      );
+      setTotal((prev) => prev - 1);
+      setOffset((prev) => prev - 1);
+    }
+
+    try {
+      await api.patch(`/api/snippets/${id}/pin`);
+    } catch {
+      setPinnedSnippets(prevPinned);
+      setSnippets(prevSnippets);
+      setTotal(prevTotal);
+      setOffset(prevOffset);
     }
   }
 
@@ -85,7 +161,7 @@ export function Home() {
   const groups = useMemo(() => groupSnippetsByDate(snippets), [snippets]);
 
   // Loading state
-  if (snippetsLoading) {
+  if (snippetsLoading || pinnedLoading) {
     return (
       <div
         style={{
@@ -110,7 +186,7 @@ export function Home() {
   }
 
   // Empty state
-  if (snippets.length === 0) {
+  if (snippets.length === 0 && pinnedSnippets.length === 0) {
     return (
       <div
         style={{
@@ -399,8 +475,62 @@ export function Home() {
         </Link>
       </div>
 
-      {/* Date-grouped sections */}
       <div style={{ display: "flex", flexDirection: "column", gap: "36px", position: "relative", zIndex: 1 }}>
+
+        {/* Pinned section */}
+        {pinnedSnippets.length > 0 && (
+          <section>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                marginBottom: "14px",
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: "11px",
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color: "var(--color-accent)",
+                  opacity: 0.8,
+                  flexShrink: 0,
+                }}
+              >
+                Pinned
+              </span>
+              <div
+                style={{
+                  flex: 1,
+                  height: "1px",
+                  background: "var(--color-accent)",
+                  opacity: 0.3,
+                }}
+              />
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                gap: "12px",
+              }}
+            >
+              {pinnedSnippets.map((snippet) => (
+                <SnippetCard
+                  key={snippet.id}
+                  snippet={snippet}
+                  onDelete={handleDelete}
+                  onTogglePin={handleTogglePin}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Date-grouped sections */}
         {groups.map((group) => (
           <section key={group.label}>
             <div
@@ -442,7 +572,7 @@ export function Home() {
               }}
             >
               {group.snippets.map((snippet) => (
-                <SnippetCard key={snippet.id} snippet={snippet} onDelete={handleDelete} />
+                <SnippetCard key={snippet.id} snippet={snippet} onDelete={handleDelete} onTogglePin={handleTogglePin} />
               ))}
             </div>
           </section>

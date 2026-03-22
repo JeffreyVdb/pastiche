@@ -23,6 +23,7 @@ class Snippet(SQLModel, table=True):
     language: str = Field(default="autodetect", max_length=100)
     content: str = Field(sa_column=Column(sa.Text, nullable=False))
     short_code: str = Field(max_length=12, sa_column_kwargs={"unique": True})
+    is_pinned: bool = Field(default=False)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
@@ -51,6 +52,7 @@ class SnippetListRead(SQLModel):
     language: str
     content_size: int
     short_code: str
+    is_pinned: bool
     created_at: datetime
     updated_at: datetime
 
@@ -62,5 +64,6 @@ class SnippetRead(SQLModel):
     language: str
     content: str
     short_code: str
+    is_pinned: bool
     created_at: datetime
     updated_at: datetime

@@ -32,9 +32,13 @@ async def list_snippets_by_user(
     order: str = "desc",
     limit: int = 50,
     offset: int = 0,
+    pinned: bool | None = None,
 ) -> tuple[list[dict], int]:
+    where_clauses = [Snippet.user_id == user_id]
+    if pinned is not None:
+        where_clauses.append(Snippet.is_pinned == pinned)
     total = await session.scalar(
-        select(func.count()).select_from(Snippet).where(Snippet.user_id == user_id)
+        select(func.count()).select_from(Snippet).where(*where_clauses)
     )
     sort_column = getattr(Snippet, sort_by.value)
     order_expr = desc(sort_column) if order == "desc" else asc(sort_column)
@@ -48,8 +52,9 @@ async def list_snippets_by_user(
             Snippet.created_at,
             Snippet.updated_at,
             Snippet.short_code,
+            Snippet.is_pinned,
         )
-        .where(Snippet.user_id == user_id)
+        .where(*where_clauses)
         .order_by(order_expr)
         .limit(limit)
         .offset(offset)
@@ -91,3 +96,12 @@ async def update_snippet(
 async def get_snippet_by_short_code(session: AsyncSession, code: str) -> Snippet | None:
     result = await session.execute(select(Snippet).where(Snippet.short_code == code))
     return result.scalar_one_or_none()
+
+
+async def toggle_snippet_pin(session: AsyncSession, snippet: Snippet) -> Snippet:
+    snippet.is_pinned = not snippet.is_pinned
+    snippet.updated_at = datetime.now(UTC).replace(tzinfo=None)
+    session.add(snippet)
+    await session.commit()
+    await session.refresh(snippet)
+    return snippet

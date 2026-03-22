@@ -352,3 +352,126 @@ async def test_list_includes_short_code(client, test_session):
         assert "short_code" in item
         assert isinstance(item["short_code"], str)
         assert len(item["short_code"]) > 0
+
+
+# ---------------------------------------------------------------------------
+# Pin endpoint
+# ---------------------------------------------------------------------------
+
+
+async def test_toggle_pin(client, test_session):
+    user = await _create_user(test_session, github_id=30, username="u_pin_toggle")
+    _auth(client, user)
+    snippet = await _create_snippet(test_session, user_id=user.id)
+
+    # First toggle: unpinned → pinned
+    resp = client.patch(f"/api/snippets/{snippet.id}/pin")
+    assert resp.status_code == 200
+    assert resp.json()["is_pinned"] is True
+
+    # Second toggle: pinned → unpinned
+    resp = client.patch(f"/api/snippets/{snippet.id}/pin")
+    assert resp.status_code == 200
+    assert resp.json()["is_pinned"] is False
+
+
+async def test_toggle_pin_not_found(client, test_session):
+    import uuid
+
+    user = await _create_user(test_session, github_id=31, username="u_pin_404")
+    _auth(client, user)
+    resp = client.patch(f"/api/snippets/{uuid.uuid4()}/pin")
+    assert resp.status_code == 404
+
+
+async def test_toggle_pin_other_user(client, test_session):
+    owner = await _create_user(test_session, github_id=32, username="u_pin_owner")
+    other = await _create_user(test_session, github_id=33, username="u_pin_other")
+    snippet = await _create_snippet(test_session, user_id=owner.id)
+
+    _auth(client, other)
+    resp = client.patch(f"/api/snippets/{snippet.id}/pin")
+    assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Pin filter on list endpoint
+# ---------------------------------------------------------------------------
+
+
+async def test_list_includes_is_pinned(client, test_session):
+    user = await _create_user(test_session, github_id=34, username="u_pin_field")
+    _auth(client, user)
+    await _create_snippet(test_session, user_id=user.id)
+
+    resp = client.get("/api/snippets")
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    assert len(items) == 1
+    assert "is_pinned" in items[0]
+    assert items[0]["is_pinned"] is False
+
+
+async def test_list_pinned_filter_true(client, test_session):
+    user = await _create_user(test_session, github_id=35, username="u_pin_true")
+    _auth(client, user)
+    s1 = await _create_snippet(test_session, user_id=user.id, title="pinned")
+    await _create_snippet(test_session, user_id=user.id, title="unpinned1")
+    await _create_snippet(test_session, user_id=user.id, title="unpinned2")
+
+    # Pin s1 via the endpoint
+    client.patch(f"/api/snippets/{s1.id}/pin")
+
+    resp = client.get("/api/snippets?pinned=true")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 1
+    assert len(body["items"]) == 1
+    assert body["items"][0]["id"] == str(s1.id)
+    assert body["items"][0]["is_pinned"] is True
+
+
+async def test_list_pinned_filter_false(client, test_session):
+    user = await _create_user(test_session, github_id=36, username="u_pin_false")
+    _auth(client, user)
+    s1 = await _create_snippet(test_session, user_id=user.id, title="pinned")
+    await _create_snippet(test_session, user_id=user.id, title="unpinned1")
+    await _create_snippet(test_session, user_id=user.id, title="unpinned2")
+
+    client.patch(f"/api/snippets/{s1.id}/pin")
+
+    resp = client.get("/api/snippets?pinned=false")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 2
+    assert len(body["items"]) == 2
+    ids = {item["id"] for item in body["items"]}
+    assert str(s1.id) not in ids
+
+
+async def test_list_no_pinned_filter(client, test_session):
+    user = await _create_user(test_session, github_id=37, username="u_pin_none")
+    _auth(client, user)
+    s1 = await _create_snippet(test_session, user_id=user.id, title="pinned")
+    await _create_snippet(test_session, user_id=user.id, title="unpinned1")
+    await _create_snippet(test_session, user_id=user.id, title="unpinned2")
+
+    client.patch(f"/api/snippets/{s1.id}/pin")
+
+    resp = client.get("/api/snippets")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 3
+    assert len(body["items"]) == 3
+
+
+async def test_get_snippet_includes_is_pinned(client, test_session):
+    user = await _create_user(test_session, github_id=38, username="u_pin_detail")
+    _auth(client, user)
+    snippet = await _create_snippet(test_session, user_id=user.id)
+
+    client.patch(f"/api/snippets/{snippet.id}/pin")
+
+    resp = client.get(f"/api/snippets/{snippet.id}")
+    assert resp.status_code == 200
+    assert resp.json()["is_pinned"] is True

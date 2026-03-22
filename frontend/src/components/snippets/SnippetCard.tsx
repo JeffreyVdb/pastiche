@@ -4,20 +4,37 @@ import type { SnippetListItem } from "@/types/snippet";
 import { formatSize } from "@/lib/format-size";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ContextMenu, type ContextMenuItem } from "@/components/ui/ContextMenu";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 interface SnippetCardProps {
   snippet: SnippetListItem;
   onDelete: (id: string) => void;
+  onTogglePin: (id: string) => void;
 }
 
-export function SnippetCard({ snippet, onDelete }: SnippetCardProps) {
+function PinIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />
+    </svg>
+  );
+}
+
+export function SnippetCard({ snippet, onDelete, onTogglePin }: SnippetCardProps) {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [hovered, setHovered] = useState(false);
   const [kebabHovered, setKebabHovered] = useState(false);
+  const [pinHovered, setPinHovered] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const [pinFocused, setPinFocused] = useState(false);
 
   const contextMenuItems: ContextMenuItem[] = [
+    {
+      label: snippet.is_pinned ? "unpin" : "pin",
+      onClick: () => onTogglePin(snippet.id),
+    },
     {
       label: "copy link",
       onClick: () => {
@@ -34,6 +51,8 @@ export function SnippetCard({ snippet, onDelete }: SnippetCardProps) {
       variant: "danger",
     },
   ];
+
+  const showPin = !isMobile && (hovered || pinHovered || snippet.is_pinned || pinFocused);
 
   return (
     <>
@@ -63,7 +82,7 @@ export function SnippetCard({ snippet, onDelete }: SnippetCardProps) {
           ? "0 0 0 1px var(--color-accent-dim), 0 4px 20px rgba(0,0,0,0.15)"
           : "0 1px 4px rgba(0,0,0,0.08)",
         position: "relative",
-        overflow: "hidden",
+        overflow: "visible",
       }}
     >
       {/* Top accent line on hover */}
@@ -164,6 +183,51 @@ export function SnippetCard({ snippet, onDelete }: SnippetCardProps) {
         <span style={{ margin: "0 6px", opacity: 0.4 }}>·</span>
         {new Date(snippet.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
       </div>
+
+      {/* Pin button — circular corner action, desktop only */}
+      {!isMobile && (
+        <button
+          onMouseEnter={() => setPinHovered(true)}
+          onMouseLeave={() => setPinHovered(false)}
+          onFocus={() => setPinFocused(true)}
+          onBlur={() => setPinFocused(false)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onTogglePin(snippet.id);
+          }}
+          aria-label={snippet.is_pinned ? "Unpin snippet" : "Pin snippet"}
+          tabIndex={showPin ? 0 : -1}
+          style={{
+            position: "absolute",
+            top: "-8px",
+            right: "-8px",
+            width: "32px",
+            height: "32px",
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 0,
+            cursor: "pointer",
+            zIndex: 2,
+            transition: "background 0.18s ease, color 0.18s ease, border-color 0.18s ease, opacity 0.18s ease, transform 0.18s ease",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.25)",
+            opacity: showPin ? 1 : 0,
+            transform: showPin ? "scale(1)" : "scale(0.8)",
+            pointerEvents: showPin ? "auto" : "none",
+            background: snippet.is_pinned ? "var(--color-accent)" : "var(--color-surface-2)",
+            color: snippet.is_pinned
+              ? "white"
+              : (pinHovered ? "var(--color-accent)" : "var(--color-text-muted)"),
+            border: `1.5px solid ${
+              pinHovered || snippet.is_pinned ? "var(--color-accent)" : "var(--color-border)"
+            }`,
+          }}
+        >
+          <PinIcon />
+        </button>
+      )}
     </div>
     </Link>
 
