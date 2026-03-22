@@ -16,9 +16,9 @@ async def create_snippet(
     language: str,
     content: str,
 ) -> Snippet:
-    snippet = Snippet(user_id=user_id, title=title, language=language, content=content)
     seq_result = await session.execute(text("SELECT nextval('snippet_short_code_seq')"))
-    snippet.short_code = int_to_base36(seq_result.scalar_one())
+    short_code = int_to_base36(seq_result.scalar_one())
+    snippet = Snippet(user_id=user_id, title=title, language=language, content=content, short_code=short_code)
     session.add(snippet)
     await session.commit()
     await session.refresh(snippet)
@@ -39,7 +39,7 @@ async def list_snippets_by_user(
     sort_column = getattr(Snippet, sort_by.value)
     order_expr = desc(sort_column) if order == "desc" else asc(sort_column)
     stmt = (
-        select(
+        select(  # type: ignore[call-overload]  # SQLModel multi-column select not typed
             Snippet.id,
             Snippet.user_id,
             Snippet.title,
