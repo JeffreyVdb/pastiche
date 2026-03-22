@@ -180,7 +180,7 @@ export function ZenOverlay({
           maxWidth,
           margin: "0 auto",
           padding: isMobile
-            ? "24px max(16px, env(safe-area-inset-right)) 24px max(16px, env(safe-area-inset-left))"
+            ? "24px max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))"
             : "60px 40px",
         }}
       >

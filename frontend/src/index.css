@@ -17,15 +17,15 @@
   --font-size-markdown: 15px;
 
   /* Dark theme colors (default) */
-  --color-bg: #0d1117;
-  --color-surface: #161b22;
-  --color-surface-2: #21262d;
-  --color-border: #30363d;
-  --color-text: #e6edf3;
-  --color-text-muted: #8b949e;
-  --color-accent: #00d4b8;
-  --color-accent-dim: #00d4b826;
-  --color-accent-hover: #00ffe8;
+  --color-bg: #282828;
+  --color-surface: #32302f;
+  --color-surface-2: #3c3836;
+  --color-border: #504945;
+  --color-text: #ebdbb2;
+  --color-text-muted: #928374;
+  --color-accent: #8ec07c;
+  --color-accent-dim: #8ec07c26;
+  --color-accent-hover: #b8bb26;
 
   /* Semantic */
   --color-teal-400: #00d4b8;
@@ -44,6 +44,7 @@
 html {
   color-scheme: dark;
   scroll-behavior: smooth;
+  background-color: var(--color-bg);
 }
 
 html.light {

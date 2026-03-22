@@ -67,7 +67,7 @@ export function ConfirmDialog({
                 background: "var(--color-surface)",
                 borderTop: "1px solid var(--color-border)",
                 borderRadius: "16px 16px 0 0",
-                padding: "20px 24px 32px",
+                padding: "20px 24px max(32px, env(safe-area-inset-bottom))",
                 width: "100%",
                 maxWidth: "100%",
                 margin: 0,

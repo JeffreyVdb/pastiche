@@ -12,7 +12,8 @@ export function AppLayout({ children }: AppLayoutProps) {
       <main
         style={{
           flex: 1,
-          paddingTop: "56px",
+          paddingTop: "calc(56px + env(safe-area-inset-top))",
+          paddingBottom: "env(safe-area-inset-bottom)",
           display: "flex",
           flexDirection: "column",
         }}

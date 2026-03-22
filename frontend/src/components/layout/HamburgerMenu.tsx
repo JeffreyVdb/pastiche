@@ -230,7 +230,7 @@ export function HamburgerMenu({ open, onClose }: HamburgerMenuProps) {
         {/* Footer */}
         <div
           style={{
-            padding: "16px 20px",
+            padding: "16px 20px max(16px, env(safe-area-inset-bottom)) 20px",
             borderTop: "1px solid var(--color-border)",
             display: "flex",
             alignItems: "center",

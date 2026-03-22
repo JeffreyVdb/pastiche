@@ -72,7 +72,7 @@ export function ContextMenu({ items, position, onClose }: ContextMenuProps) {
             background: "var(--color-surface)",
             borderTop: "1px solid var(--color-border)",
             borderRadius: "16px 16px 0 0",
-            padding: "12px 0 32px",
+            padding: "12px 0 max(32px, env(safe-area-inset-bottom))",
             animation: "slide-up-bounce 0.28s cubic-bezier(0.34, 1.56, 0.64, 1)",
           }}
         >
