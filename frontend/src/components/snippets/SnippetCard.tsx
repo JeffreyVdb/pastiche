@@ -10,6 +10,7 @@ interface SnippetCardProps {
   snippet: SnippetListItem;
   onDelete: (id: string) => void;
   onTogglePin: (id: string) => void;
+  animateEntrance?: boolean;
 }
 
 function PinIcon({ size = 14 }: { size?: number }) {
@@ -20,7 +21,7 @@ function PinIcon({ size = 14 }: { size?: number }) {
   );
 }
 
-export function SnippetCard({ snippet, onDelete, onTogglePin }: SnippetCardProps) {
+export function SnippetCard({ snippet, onDelete, onTogglePin, animateEntrance }: SnippetCardProps) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [hovered, setHovered] = useState(false);
@@ -62,6 +63,7 @@ export function SnippetCard({ snippet, onDelete, onTogglePin }: SnippetCardProps
       style={{ textDecoration: "none", display: "block" }}
     >
     <div
+      className={animateEntrance ? "animate-snippet-enter" : undefined}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onContextMenu={(e) => {

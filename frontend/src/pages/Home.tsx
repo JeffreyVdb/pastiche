@@ -26,6 +26,7 @@ export function Home() {
   // Pinned snippets — all loaded upfront
   const [pinnedSnippets, setPinnedSnippets] = useState<SnippetListItem[]>([]);
   const [pinnedLoading, setPinnedLoading] = useState(true);
+  const [recentlyMoved, setRecentlyMoved] = useState<Set<string>>(new Set());
 
   const fetchPinnedSnippets = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -109,6 +110,15 @@ export function Home() {
     const prevSnippets = snippets;
     const prevTotal = total;
     const prevOffset = offset;
+
+    setRecentlyMoved((prev) => new Set(prev).add(id));
+    setTimeout(() => {
+      setRecentlyMoved((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }, 500);
 
     if (inPinned) {
       // Unpinning: move from pinned → regular list
@@ -482,37 +492,6 @@ export function Home() {
           <section>
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                marginBottom: "14px",
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "11px",
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  color: "var(--color-accent)",
-                  opacity: 0.8,
-                  flexShrink: 0,
-                }}
-              >
-                Pinned
-              </span>
-              <div
-                style={{
-                  flex: 1,
-                  height: "1px",
-                  background: "var(--color-accent)",
-                  opacity: 0.3,
-                }}
-              />
-            </div>
-
-            <div
-              style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
                 gap: "12px",
@@ -524,6 +503,7 @@ export function Home() {
                   snippet={snippet}
                   onDelete={handleDelete}
                   onTogglePin={handleTogglePin}
+                  animateEntrance={recentlyMoved.has(snippet.id)}
                 />
               ))}
             </div>
@@ -572,7 +552,7 @@ export function Home() {
               }}
             >
               {group.snippets.map((snippet) => (
-                <SnippetCard key={snippet.id} snippet={snippet} onDelete={handleDelete} onTogglePin={handleTogglePin} />
+                <SnippetCard key={snippet.id} snippet={snippet} onDelete={handleDelete} onTogglePin={handleTogglePin} animateEntrance={recentlyMoved.has(snippet.id)} />
               ))}
             </div>
           </section>
