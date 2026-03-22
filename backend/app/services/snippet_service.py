@@ -1,10 +1,11 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import asc, desc, func
+from sqlalchemy import asc, desc, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from app.core.short_code import int_to_base36
 from app.models.snippet import Snippet, SnippetSortField
 
 
@@ -16,6 +17,8 @@ async def create_snippet(
     content: str,
 ) -> Snippet:
     snippet = Snippet(user_id=user_id, title=title, language=language, content=content)
+    seq_result = await session.execute(text("SELECT nextval('snippet_short_code_seq')"))
+    snippet.short_code = int_to_base36(seq_result.scalar_one())
     session.add(snippet)
     await session.commit()
     await session.refresh(snippet)
@@ -44,6 +47,7 @@ async def list_snippets_by_user(
             func.octet_length(Snippet.content).label("content_size"),
             Snippet.created_at,
             Snippet.updated_at,
+            Snippet.short_code,
         )
         .where(Snippet.user_id == user_id)
         .order_by(order_expr)
@@ -82,3 +86,8 @@ async def update_snippet(
     await session.commit()
     await session.refresh(snippet)
     return snippet
+
+
+async def get_snippet_by_short_code(session: AsyncSession, code: str) -> Snippet | None:
+    result = await session.execute(select(Snippet).where(Snippet.short_code == code))
+    return result.scalar_one_or_none()

@@ -18,6 +18,7 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [zenOpen, setZenOpen] = useState(false);
   const exitingRef = useRef(false);
@@ -42,6 +43,14 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
     navigator.clipboard.writeText(snippet.content).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handleCopyLink = () => {
+    if (!snippet) return;
+    navigator.clipboard.writeText(`${window.location.origin}/s/${snippet.short_code}`).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
     });
   };
 
@@ -79,6 +88,7 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
   const highlighterStyle = theme.hljs;
 
   const overflowItems: OverflowMenuItem[] = [
+    { label: linkCopied ? "copied!" : "copy link", onClick: handleCopyLink },
     ...(snippet.language === "markdown"
       ? [
           {
@@ -258,6 +268,24 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
                   }}
                 >
                   {copied ? "copied!" : "copy"}
+                </button>
+                <button
+                  onClick={handleCopyLink}
+                  style={{
+                    padding: "6px 16px",
+                    background: "none",
+                    border: "1px solid var(--color-accent)",
+                    borderRadius: "8px",
+                    color: "var(--color-accent)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    letterSpacing: "0.04em",
+                    transition: "background 0.15s, opacity 0.15s",
+                    opacity: linkCopied ? 0.7 : 1,
+                  }}
+                >
+                  {linkCopied ? "copied!" : "link"}
                 </button>
               </>
             )}

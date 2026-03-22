@@ -9,14 +9,23 @@ from app.main import app
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
+_sequence_counters: dict[str, int] = {}
+
 
 @pytest.fixture
 def test_engine():
+    _sequence_counters.clear()
     engine = create_async_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
 
     @event.listens_for(engine.sync_engine, "connect")
     def register_sqlite_functions(dbapi_conn, _connection_record):
         dbapi_conn.create_function("octet_length", 1, lambda s: len(s.encode("utf-8")) if s else 0)
+
+        def _nextval(seq_name: str) -> int:
+            _sequence_counters[seq_name] = _sequence_counters.get(seq_name, 0) + 1
+            return _sequence_counters[seq_name]
+
+        dbapi_conn.create_function("nextval", 1, _nextval)
 
     return engine
 

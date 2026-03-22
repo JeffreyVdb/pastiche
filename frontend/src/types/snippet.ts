@@ -4,6 +4,7 @@ export interface SnippetListItem {
   title: string;
   language: string;
   content_size: number;
+  short_code: string;
   created_at: string;
   updated_at: string;
 }
@@ -14,6 +15,7 @@ export interface Snippet {
   title: string;
   language: string;
   content: string;
+  short_code: string;
   created_at: string;
   updated_at: string;
 }

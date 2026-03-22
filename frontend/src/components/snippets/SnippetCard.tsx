@@ -3,6 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import type { SnippetListItem } from "@/types/snippet";
 import { formatSize } from "@/lib/format-size";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { ContextMenu, type ContextMenuItem } from "@/components/ui/ContextMenu";
 
 interface SnippetCardProps {
   snippet: SnippetListItem;
@@ -12,10 +13,27 @@ interface SnippetCardProps {
 export function SnippetCard({ snippet, onDelete }: SnippetCardProps) {
   const navigate = useNavigate();
   const [hovered, setHovered] = useState(false);
-  const [editHovered, setEditHovered] = useState(false);
-  const [deleteHovered, setDeleteHovered] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [kebabHovered, setKebabHovered] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
+
+  const contextMenuItems: ContextMenuItem[] = [
+    {
+      label: "copy link",
+      onClick: () => {
+        navigator.clipboard.writeText(`${window.location.origin}/s/${snippet.short_code}`);
+      },
+    },
+    {
+      label: "edit",
+      onClick: () => navigate({ to: "/snippets/$snippetId/edit", params: { snippetId: snippet.id } }),
+    },
+    {
+      label: "delete",
+      onClick: () => setConfirmOpen(true),
+      variant: "danger",
+    },
+  ];
 
   return (
     <>
@@ -27,6 +45,11 @@ export function SnippetCard({ snippet, onDelete }: SnippetCardProps) {
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenuPos({ x: e.clientX, y: e.clientY });
+      }}
       style={{
         background: "var(--color-surface)",
         border: `1px solid ${hovered ? "var(--color-accent)" : "var(--color-border)"}`,
@@ -71,9 +94,10 @@ export function SnippetCard({ snippet, onDelete }: SnippetCardProps) {
             lineHeight: 1.35,
             flex: 1,
             minWidth: 0,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
             overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
           }}
         >
           {snippet.title}
@@ -97,6 +121,33 @@ export function SnippetCard({ snippet, onDelete }: SnippetCardProps) {
         >
           {snippet.language}
         </span>
+
+        {/* Kebab menu button */}
+        <button
+          onMouseEnter={() => setKebabHovered(true)}
+          onMouseLeave={() => setKebabHovered(false)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const rect = e.currentTarget.getBoundingClientRect();
+            setContextMenuPos({ x: rect.left, y: rect.bottom + 4 });
+          }}
+          style={{
+            flexShrink: 0,
+            padding: "2px 6px",
+            background: kebabHovered ? "var(--color-accent-dim)" : "none",
+            border: `1px solid ${kebabHovered ? "var(--color-accent)" : "transparent"}`,
+            borderRadius: "5px",
+            color: kebabHovered ? "var(--color-accent)" : "var(--color-text-muted)",
+            fontFamily: "var(--font-mono)",
+            fontSize: "14px",
+            cursor: "pointer",
+            transition: "background 0.15s, border-color 0.15s, color 0.15s",
+            lineHeight: 1,
+          }}
+        >
+          ⋮
+        </button>
       </div>
 
       {/* Size info */}
@@ -113,63 +164,14 @@ export function SnippetCard({ snippet, onDelete }: SnippetCardProps) {
         <span style={{ margin: "0 6px", opacity: 0.4 }}>·</span>
         {new Date(snippet.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
       </div>
-
-      {/* Action buttons */}
-      <div style={{ display: "flex", gap: "8px", marginTop: "2px" }}>
-        <button
-          onMouseEnter={() => setEditHovered(true)}
-          onMouseLeave={() => setEditHovered(false)}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            navigate({ to: "/snippets/$snippetId/edit", params: { snippetId: snippet.id } });
-          }}
-          style={{
-            flex: 1,
-            padding: "6px 12px",
-            background: editHovered ? "var(--color-accent-dim)" : "none",
-            border: `1px solid ${editHovered ? "var(--color-accent)" : "var(--color-border)"}`,
-            borderRadius: "7px",
-            color: editHovered ? "var(--color-accent)" : "var(--color-text-muted)",
-            fontFamily: "var(--font-mono)",
-            fontSize: "11px",
-            cursor: "pointer",
-            transition: "background 0.15s, border-color 0.15s, color 0.15s",
-            letterSpacing: "0.04em",
-          }}
-        >
-          edit
-        </button>
-
-        <button
-          disabled={deleting}
-          onMouseEnter={() => setDeleteHovered(true)}
-          onMouseLeave={() => setDeleteHovered(false)}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setConfirmOpen(true);
-          }}
-          style={{
-            flex: 1,
-            padding: "6px 12px",
-            background: deleteHovered ? "rgba(239,68,68,0.1)" : "none",
-            border: `1px solid ${deleteHovered ? "rgba(239,68,68,0.5)" : "var(--color-border)"}`,
-            borderRadius: "7px",
-            color: deleteHovered ? "rgb(239,68,68)" : "var(--color-text-muted)",
-            fontFamily: "var(--font-mono)",
-            fontSize: "11px",
-            cursor: deleting ? "not-allowed" : "pointer",
-            opacity: deleting ? 0.5 : 1,
-            transition: "background 0.15s, border-color 0.15s, color 0.15s",
-            letterSpacing: "0.04em",
-          }}
-        >
-          {deleting ? "…" : "delete"}
-        </button>
-      </div>
     </div>
     </Link>
+
+    <ContextMenu
+      items={contextMenuItems}
+      position={contextMenuPos}
+      onClose={() => setContextMenuPos(null)}
+    />
 
     <ConfirmDialog
       open={confirmOpen}
@@ -178,7 +180,6 @@ export function SnippetCard({ snippet, onDelete }: SnippetCardProps) {
       confirmLabel="delete"
       onConfirm={() => {
         setConfirmOpen(false);
-        setDeleting(true);
         onDelete(snippet.id);
       }}
       onCancel={() => setConfirmOpen(false)}

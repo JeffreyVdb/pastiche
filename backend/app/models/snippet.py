@@ -22,6 +22,7 @@ class Snippet(SQLModel, table=True):
     title: str = Field(max_length=255)
     language: str = Field(default="autodetect", max_length=100)
     content: str = Field(sa_column=Column(sa.Text, nullable=False))
+    short_code: str | None = Field(default=None, max_length=12, sa_column_kwargs={"unique": True})
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
@@ -49,6 +50,7 @@ class SnippetListRead(SQLModel):
     title: str
     language: str
     content_size: int
+    short_code: str
     created_at: datetime
     updated_at: datetime
 
@@ -59,5 +61,6 @@ class SnippetRead(SQLModel):
     title: str
     language: str
     content: str
+    short_code: str
     created_at: datetime
     updated_at: datetime

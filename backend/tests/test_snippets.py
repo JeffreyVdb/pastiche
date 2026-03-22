@@ -1,8 +1,11 @@
 import pytest
 
 from app.core.security import create_access_token
+from app.core.short_code import int_to_base36
 from app.models.snippet import Snippet
 from app.models.user import User
+
+_snippet_counter = 0
 
 
 async def _create_user(session, *, github_id: int = 1, username: str = "testuser") -> User:
@@ -20,7 +23,15 @@ async def _create_user(session, *, github_id: int = 1, username: str = "testuser
 
 
 async def _create_snippet(session, *, user_id, title: str = "My snippet", content: str = "hello") -> Snippet:
-    snippet = Snippet(user_id=user_id, title=title, language="python", content=content)
+    global _snippet_counter
+    _snippet_counter += 1
+    snippet = Snippet(
+        user_id=user_id,
+        title=title,
+        language="python",
+        content=content,
+        short_code=int_to_base36(_snippet_counter),
+    )
     session.add(snippet)
     await session.commit()
     await session.refresh(snippet)
@@ -253,3 +264,91 @@ async def test_list_pagination_with_sort(client, test_session):
 
     page2 = client.get("/api/snippets?limit=1&offset=1&sort_by=created_at&order=asc").json()
     assert page2["items"][0]["id"] == str(s2.id)
+
+
+# ---------------------------------------------------------------------------
+# Short code tests
+# ---------------------------------------------------------------------------
+
+
+async def test_create_snippet_has_short_code(client, test_session):
+    user = await _create_user(test_session, github_id=20, username="u_sc_create")
+    _auth(client, user)
+    response = client.post("/api/snippets", json={"title": "sc test", "content": "hello"})
+    assert response.status_code == 201
+    data = response.json()
+    assert "short_code" in data
+    assert isinstance(data["short_code"], str)
+    assert len(data["short_code"]) > 0
+
+
+async def test_short_codes_are_unique(client, test_session):
+    user = await _create_user(test_session, github_id=21, username="u_sc_unique")
+    _auth(client, user)
+    codes = set()
+    for i in range(5):
+        response = client.post("/api/snippets", json={"title": f"sc{i}", "content": f"content{i}"})
+        assert response.status_code == 201
+        codes.add(response.json()["short_code"])
+    assert len(codes) == 5
+
+
+async def test_short_code_not_in_update(client, test_session):
+    user = await _create_user(test_session, github_id=22, username="u_sc_update")
+    _auth(client, user)
+    create_resp = client.post("/api/snippets", json={"title": "original", "content": "body"})
+    assert create_resp.status_code == 201
+    snippet_id = create_resp.json()["id"]
+    original_code = create_resp.json()["short_code"]
+
+    patch_resp = client.patch(f"/api/snippets/{snippet_id}", json={"title": "updated"})
+    assert patch_resp.status_code == 200
+    assert patch_resp.json()["short_code"] == original_code
+
+
+async def test_resolve_short_code_authenticated(client, test_session):
+    user = await _create_user(test_session, github_id=23, username="u_sc_resolve")
+    _auth(client, user)
+    create_resp = client.post("/api/snippets", json={"title": "resolve me", "content": "data"})
+    assert create_resp.status_code == 201
+    snippet_id = create_resp.json()["id"]
+    short_code = create_resp.json()["short_code"]
+
+    resolve_resp = client.get(f"/api/snippets/resolve/{short_code}")
+    assert resolve_resp.status_code == 200
+    assert resolve_resp.json()["snippet_id"] == snippet_id
+
+
+async def test_resolve_short_code_unauthenticated(client, test_session):
+    user = await _create_user(test_session, github_id=24, username="u_sc_noauth")
+    _auth(client, user)
+    create_resp = client.post("/api/snippets", json={"title": "public resolve", "content": "data"})
+    assert create_resp.status_code == 201
+    snippet_id = create_resp.json()["id"]
+    short_code = create_resp.json()["short_code"]
+
+    # Clear auth cookies to simulate unauthenticated request
+    client.cookies.clear()
+    resolve_resp = client.get(f"/api/snippets/resolve/{short_code}")
+    assert resolve_resp.status_code == 200
+    assert resolve_resp.json()["snippet_id"] == snippet_id
+
+
+async def test_resolve_short_code_not_found(client, test_session):
+    resolve_resp = client.get("/api/snippets/resolve/nonexistent")
+    assert resolve_resp.status_code == 404
+
+
+async def test_list_includes_short_code(client, test_session):
+    user = await _create_user(test_session, github_id=25, username="u_sc_list")
+    _auth(client, user)
+    await _create_snippet(test_session, user_id=user.id, title="listed")
+
+    response = client.get("/api/snippets")
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert len(items) > 0
+    for item in items:
+        assert "short_code" in item
+        assert isinstance(item["short_code"], str)
+        assert len(item["short_code"]) > 0

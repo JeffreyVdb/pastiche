@@ -10,6 +10,7 @@ from app.services.snippet_service import (
     create_snippet,
     delete_snippet,
     get_snippet_by_id,
+    get_snippet_by_short_code,
     list_snippets_by_user,
     update_snippet,
 )
@@ -47,6 +48,14 @@ async def list_mine(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get("/resolve/{code}")
+async def resolve_short_code(code: str, session: SessionDep) -> dict:
+    snippet = await get_snippet_by_short_code(session=session, code=code.lower())
+    if not snippet:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Snippet not found")
+    return {"snippet_id": str(snippet.id)}
 
 
 @router.get("/{snippet_id}", response_model=SnippetRead)
