@@ -87,21 +87,6 @@ export function SnippetCard({ snippet, onDelete, onTogglePin, animateEntrance }:
         overflow: "visible",
       }}
     >
-      {/* Top accent line on hover */}
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: "2px",
-          background: "var(--color-accent)",
-          borderRadius: "12px 12px 0 0",
-          opacity: hovered ? 1 : 0,
-          transition: "opacity 0.18s ease",
-        }}
-      />
-
       {/* Header row */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "10px" }}>
         <h3

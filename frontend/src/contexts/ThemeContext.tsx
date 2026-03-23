@@ -65,8 +65,12 @@ function applyTheme(theme: SyntaxTheme) {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [themeId, setThemeIdState] = useState<string>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return migrateStoredId(stored);
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      return migrateStoredId(stored);
+    } catch {
+      return DEFAULT_THEME_ID;
+    }
   });
 
   const theme = useMemo(() => getThemeById(themeId), [themeId]);
