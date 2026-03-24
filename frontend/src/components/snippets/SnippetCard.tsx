@@ -53,7 +53,7 @@ export function SnippetCard({ snippet, onDelete, onTogglePin, animateEntrance }:
     },
   ];
 
-  const showPin = !isMobile && (hovered || pinHovered || snippet.is_pinned || pinFocused);
+  const showPin = snippet.is_pinned || (!isMobile && (hovered || pinHovered || pinFocused));
 
   return (
     <>
@@ -171,8 +171,8 @@ export function SnippetCard({ snippet, onDelete, onTogglePin, animateEntrance }:
         {new Date(snippet.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
       </div>
 
-      {/* Pin button — circular corner action, desktop only */}
-      {!isMobile && (
+      {/* Pin button — circular corner action; always visible for pinned snippets */}
+      {(!isMobile || snippet.is_pinned) && (
         <button
           onMouseEnter={() => setPinHovered(true)}
           onMouseLeave={() => setPinHovered(false)}
