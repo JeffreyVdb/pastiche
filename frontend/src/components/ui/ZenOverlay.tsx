@@ -121,7 +121,7 @@ export function ZenOverlay({
 
   if (!open) return null;
 
-  const isMarkdown = snippet.language === "markdown";
+  const isMarkdown = snippet.language === "markdown" || snippet.language === "markdown tasks";
   const maxWidth = isMarkdown && showPreview ? "720px" : "900px";
 
   return createPortal(

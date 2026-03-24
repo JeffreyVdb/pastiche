@@ -28,6 +28,7 @@ export function getLanguageExtension(lang: string): Extension | null {
     case "json":
       return json();
     case "markdown":
+    case "markdown tasks":
       return markdown();
     case "xml":
       return xml();

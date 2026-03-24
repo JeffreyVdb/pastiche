@@ -13,6 +13,7 @@ export const LANGUAGES = [
   "kotlin",
   "lua",
   "markdown",
+  "markdown tasks",
   "php",
   "python",
   "ruby",

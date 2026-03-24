@@ -6,6 +6,7 @@ import type { Snippet } from "@/types/snippet";
 import { FocusInput } from "@/components/snippets/SnippetFormFields";
 import { LanguageSearch } from "@/components/snippets/LanguageSearch";
 import { CodeEditor } from "@/components/snippets/CodeEditor";
+import { TaskEditor } from "@/components/snippets/TaskEditor";
 
 export function EditSnippet({ snippetId }: { snippetId: string }) {
   const navigate = useNavigate();
@@ -193,7 +194,11 @@ export function EditSnippet({ snippetId }: { snippetId: string }) {
             >
               Content
             </label>
-            <CodeEditor value={content} onChange={setContent} language={language} />
+            {language === "markdown tasks" ? (
+              <TaskEditor value={content} onChange={setContent} />
+            ) : (
+              <CodeEditor value={content} onChange={setContent} language={language} />
+            )}
           </div>
 
           {/* Error */}

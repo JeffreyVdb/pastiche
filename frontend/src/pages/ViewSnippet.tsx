@@ -87,9 +87,11 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
 
   const highlighterStyle = theme.hljs;
 
+  const isMarkdownLike = snippet.language === "markdown" || snippet.language === "markdown tasks";
+
   const overflowItems: OverflowMenuItem[] = [
     { label: linkCopied ? "copied!" : "copy link", onClick: handleCopyLink },
-    ...(snippet.language === "markdown"
+    ...(isMarkdownLike
       ? [
           {
             label: showPreview ? "source" : "preview",
@@ -152,7 +154,7 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
               <>
                 {/* Desktop: existing flat layout */}
                 {/* Left group: view-mode + zen */}
-                {snippet.language === "markdown" && (
+                {isMarkdownLike && (
                   <button
                     onClick={() => setShowPreview((v) => !v)}
                     style={{
@@ -310,7 +312,7 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
         </div>
 
         {/* Code block / Markdown preview */}
-        {showPreview && snippet.language === "markdown" ? (
+        {showPreview && isMarkdownLike ? (
           <div
             className="markdown-preview"
             style={{
