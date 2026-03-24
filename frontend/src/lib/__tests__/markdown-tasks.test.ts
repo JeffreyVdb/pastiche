@@ -4,7 +4,6 @@ import {
   serializeMarkdownTasks,
   hasFreeformContent,
   countTasks,
-  type TaskDocument,
 } from "../markdown-tasks";
 
 // ── Parse basics ─────────────────────────────────────────────────────────────
