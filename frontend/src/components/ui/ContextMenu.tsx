@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import type React from "react";
 import { createPortal } from "react-dom";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
@@ -12,9 +13,10 @@ interface ContextMenuProps {
   items: ContextMenuItem[];
   position: { x: number; y: number } | null;
   onClose: () => void;
+  footer?: React.ReactNode;
 }
 
-export function ContextMenu({ items, position, onClose }: ContextMenuProps) {
+export function ContextMenu({ items, position, onClose, footer }: ContextMenuProps) {
   const isMobile = useIsMobile();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -100,6 +102,12 @@ export function ContextMenu({ items, position, onClose }: ContextMenuProps) {
               {item.label}
             </button>
           ))}
+          {footer && (
+            <>
+              <div style={{ height: "1px", background: "var(--color-border)", margin: "4px 16px 8px", opacity: 0.5 }} />
+              <div style={{ padding: "8px 20px 4px" }}>{footer}</div>
+            </>
+          )}
         </div>
       </div>,
       document.body
@@ -164,6 +172,12 @@ export function ContextMenu({ items, position, onClose }: ContextMenuProps) {
             {item.label}
           </button>
         ))}
+        {footer && (
+          <>
+            <div style={{ height: "1px", background: "var(--color-border)", margin: "4px 0 4px", opacity: 0.5 }} />
+            <div style={{ padding: "4px 4px 4px" }}>{footer}</div>
+          </>
+        )}
       </div>
     </>,
     document.body

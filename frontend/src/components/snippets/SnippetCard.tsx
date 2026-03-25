@@ -4,12 +4,16 @@ import type { SnippetListItem } from "@/types/snippet";
 import { formatSize } from "@/lib/format-size";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ContextMenu, type ContextMenuItem } from "@/components/ui/ContextMenu";
+import { ColorPickerRow } from "@/components/ui/ColorPickerRow";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useTheme } from "@/hooks/useTheme";
+import { getSnippetColorStyle } from "@/lib/snippet-colors";
 
 interface SnippetCardProps {
   snippet: SnippetListItem;
   onDelete: (id: string) => void;
   onTogglePin: (id: string) => void;
+  onColorChange: (id: string, color: string | null) => void;
   animateEntrance?: boolean;
 }
 
@@ -21,9 +25,11 @@ function PinIcon({ size = 14 }: { size?: number }) {
   );
 }
 
-export function SnippetCard({ snippet, onDelete, onTogglePin, animateEntrance }: SnippetCardProps) {
+export function SnippetCard({ snippet, onDelete, onTogglePin, onColorChange, animateEntrance }: SnippetCardProps) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { resolved } = useTheme();
+  const colorStyle = getSnippetColorStyle(snippet.color, resolved);
   const [hovered, setHovered] = useState(false);
   const [kebabHovered, setKebabHovered] = useState(false);
   const [pinHovered, setPinHovered] = useState(false);
@@ -72,8 +78,8 @@ export function SnippetCard({ snippet, onDelete, onTogglePin, animateEntrance }:
         setContextMenuPos({ x: e.clientX, y: e.clientY });
       }}
       style={{
-        background: "var(--color-surface)",
-        border: `1px solid ${hovered ? "var(--color-accent)" : "var(--color-border)"}`,
+        background: colorStyle.background ?? "var(--color-surface)",
+        border: `1px solid ${hovered ? "var(--color-accent)" : (colorStyle.borderColor as string | undefined) ?? "var(--color-border)"}`,
         borderRadius: "12px",
         padding: "18px 20px",
         display: "flex",
@@ -222,6 +228,15 @@ export function SnippetCard({ snippet, onDelete, onTogglePin, animateEntrance }:
       items={contextMenuItems}
       position={contextMenuPos}
       onClose={() => setContextMenuPos(null)}
+      footer={snippet.language === "markdown tasks" ? (
+        <ColorPickerRow
+          currentColor={snippet.color}
+          onSelect={(color) => {
+            onColorChange(snippet.id, color);
+            setContextMenuPos(null);
+          }}
+        />
+      ) : undefined}
     />
 
     <ConfirmDialog

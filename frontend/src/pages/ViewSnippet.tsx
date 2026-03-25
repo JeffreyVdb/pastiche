@@ -11,6 +11,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { useSettings } from "@/hooks/useSettings";
 import { ZenOverlay } from "@/components/ui/ZenOverlay";
 import { OverflowMenu, type OverflowMenuItem } from "@/components/ui/OverflowMenu";
+import { getHighlighterLanguage, isMarkdownLike } from "@/lib/highlighter-lang";
 
 export function ViewSnippet({ snippetId }: { snippetId: string }) {
   const navigate = useNavigate();
@@ -87,11 +88,11 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
 
   const highlighterStyle = theme.hljs;
 
-  const isMarkdownLike = snippet.language === "markdown" || snippet.language === "markdown tasks";
+  const markdownLike = isMarkdownLike(snippet.language);
 
   const overflowItems: OverflowMenuItem[] = [
     { label: linkCopied ? "copied!" : "copy link", onClick: handleCopyLink },
-    ...(isMarkdownLike
+    ...(markdownLike
       ? [
           {
             label: showPreview ? "source" : "preview",
@@ -154,7 +155,7 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
               <>
                 {/* Desktop: existing flat layout */}
                 {/* Left group: view-mode + zen */}
-                {isMarkdownLike && (
+                {markdownLike && (
                   <button
                     onClick={() => setShowPreview((v) => !v)}
                     style={{
@@ -312,7 +313,7 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
         </div>
 
         {/* Code block / Markdown preview */}
-        {showPreview && isMarkdownLike ? (
+        {showPreview && markdownLike ? (
           <div
             className="markdown-preview"
             style={{
@@ -343,7 +344,7 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
             marginRight: isMobile ? -24 : undefined,
           }}>
             <SyntaxHighlighter
-              language={snippet.language === "autodetect" ? undefined : snippet.language}
+              language={getHighlighterLanguage(snippet.language)}
               style={highlighterStyle}
               wrapLongLines={wordWrap}
               customStyle={{ background: "var(--color-surface)", fontFamily: "var(--font-mono)", fontSize: "var(--font-size-code)", lineHeight: "1.6", padding: "20px 24px", margin: 0, borderRadius: isMobile ? 0 : "12px" }}

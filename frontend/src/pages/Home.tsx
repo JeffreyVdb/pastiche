@@ -154,6 +154,21 @@ export function Home() {
     }
   }
 
+  async function handleColorChange(id: string, color: string | null) {
+    const prevPinned = pinnedSnippets;
+    const prevSnippets = snippets;
+    const updater = (list: SnippetListItem[]) =>
+      list.map((s) => (s.id === id ? { ...s, color } : s));
+    setPinnedSnippets(updater);
+    setSnippets(updater);
+    try {
+      await api.patch(`/api/snippets/${id}`, { color: color ?? "none" });
+    } catch {
+      setPinnedSnippets(prevPinned);
+      setSnippets(prevSnippets);
+    }
+  }
+
   const hasMore = offset < total;
 
   const loadNextPage = useCallback(() => {
@@ -503,6 +518,7 @@ export function Home() {
                   snippet={snippet}
                   onDelete={handleDelete}
                   onTogglePin={handleTogglePin}
+                  onColorChange={handleColorChange}
                   animateEntrance={recentlyMoved.has(snippet.id)}
                 />
               ))}
@@ -552,7 +568,7 @@ export function Home() {
               }}
             >
               {group.snippets.map((snippet) => (
-                <SnippetCard key={snippet.id} snippet={snippet} onDelete={handleDelete} onTogglePin={handleTogglePin} animateEntrance={recentlyMoved.has(snippet.id)} />
+                <SnippetCard key={snippet.id} snippet={snippet} onDelete={handleDelete} onTogglePin={handleTogglePin} onColorChange={handleColorChange} animateEntrance={recentlyMoved.has(snippet.id)} />
               ))}
             </div>
           </section>

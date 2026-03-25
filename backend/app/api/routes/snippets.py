@@ -90,5 +90,5 @@ async def update(body: SnippetUpdate, snippet_id: uuid.UUID, current_user: Curre
     snippet = await get_snippet_by_id(session=session, snippet_id=snippet_id)
     if not snippet or snippet.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Snippet not found")
-    snippet = await update_snippet(session=session, snippet=snippet, title=body.title, language=body.language, content=body.content)
+    snippet = await update_snippet(session=session, snippet=snippet, title=body.title, language=body.language, content=body.content, color=body.color)
     return SnippetRead.model_validate(snippet)

@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import type { Snippet } from "@/types/snippet";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { useSettings } from "../../hooks/useSettings";
+import { getHighlighterLanguage, isMarkdownLike } from "@/lib/highlighter-lang";
 
 interface ZenOverlayProps {
   open: boolean;
@@ -121,7 +122,7 @@ export function ZenOverlay({
 
   if (!open) return null;
 
-  const isMarkdown = snippet.language === "markdown" || snippet.language === "markdown tasks";
+  const isMarkdown = isMarkdownLike(snippet.language);
   const maxWidth = isMarkdown && showPreview ? "720px" : "900px";
 
   return createPortal(
@@ -197,7 +198,7 @@ export function ZenOverlay({
           </div>
         ) : (
           <SyntaxHighlighter
-            language={snippet.language === "autodetect" ? undefined : snippet.language}
+            language={getHighlighterLanguage(snippet.language)}
             style={highlighterStyle}
             wrapLongLines={wordWrap}
             customStyle={{

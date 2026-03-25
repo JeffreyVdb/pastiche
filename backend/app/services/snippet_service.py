@@ -53,6 +53,7 @@ async def list_snippets_by_user(
             Snippet.updated_at,
             Snippet.short_code,
             Snippet.is_pinned,
+            Snippet.color,
         )
         .where(*where_clauses)
         .order_by(order_expr)
@@ -79,6 +80,7 @@ async def update_snippet(
     title: str | None = None,
     language: str | None = None,
     content: str | None = None,
+    color: str | None = None,
 ) -> Snippet:
     if title is not None:
         snippet.title = title
@@ -86,6 +88,8 @@ async def update_snippet(
         snippet.language = language
     if content is not None:
         snippet.content = content
+    if color is not None:
+        snippet.color = None if color == "none" else color
     snippet.updated_at = datetime.now(UTC).replace(tzinfo=None)
     session.add(snippet)
     await session.commit()
