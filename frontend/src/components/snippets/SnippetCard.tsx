@@ -228,7 +228,7 @@ export function SnippetCard({ snippet, onDelete, onTogglePin, onColorChange, ani
       items={contextMenuItems}
       position={contextMenuPos}
       onClose={() => setContextMenuPos(null)}
-      footer={snippet.language === "markdown tasks" ? (
+      footer={
         <ColorPickerRow
           currentColor={snippet.color}
           onSelect={(color) => {
@@ -236,7 +236,7 @@ export function SnippetCard({ snippet, onDelete, onTogglePin, onColorChange, ani
             setContextMenuPos(null);
           }}
         />
-      ) : undefined}
+      }
     />
 
     <ConfirmDialog
