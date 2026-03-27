@@ -169,6 +169,21 @@ export function Home() {
     }
   }
 
+  async function handleToggleVisibility(id: string) {
+    const prevPinned = pinnedSnippets;
+    const prevSnippets = snippets;
+    const updater = (list: SnippetListItem[]) =>
+      list.map((s) => (s.id === id ? { ...s, is_public: !s.is_public } : s));
+    setPinnedSnippets(updater);
+    setSnippets(updater);
+    try {
+      await api.patch(`/api/snippets/${id}/visibility`);
+    } catch {
+      setPinnedSnippets(prevPinned);
+      setSnippets(prevSnippets);
+    }
+  }
+
   const hasMore = offset < total;
 
   const loadNextPage = useCallback(() => {
@@ -519,6 +534,7 @@ export function Home() {
                   onDelete={handleDelete}
                   onTogglePin={handleTogglePin}
                   onColorChange={handleColorChange}
+                  onToggleVisibility={handleToggleVisibility}
                   animateEntrance={recentlyMoved.has(snippet.id)}
                 />
               ))}
@@ -568,7 +584,7 @@ export function Home() {
               }}
             >
               {group.snippets.map((snippet) => (
-                <SnippetCard key={snippet.id} snippet={snippet} onDelete={handleDelete} onTogglePin={handleTogglePin} onColorChange={handleColorChange} animateEntrance={recentlyMoved.has(snippet.id)} />
+                <SnippetCard key={snippet.id} snippet={snippet} onDelete={handleDelete} onTogglePin={handleTogglePin} onColorChange={handleColorChange} onToggleVisibility={handleToggleVisibility} animateEntrance={recentlyMoved.has(snippet.id)} />
               ))}
             </div>
           </section>

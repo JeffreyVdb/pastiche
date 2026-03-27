@@ -9,6 +9,7 @@ import { formatSize } from "@/lib/format-size";
 import { useTheme } from "@/hooks/useTheme";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useSettings } from "@/hooks/useSettings";
+import { useAuth } from "@/hooks/useAuth";
 import { ZenOverlay } from "@/components/ui/ZenOverlay";
 import { OverflowMenu, type OverflowMenuItem } from "@/components/ui/OverflowMenu";
 import { getHighlighterLanguage, isMarkdownLike } from "@/lib/highlighter-lang";
@@ -26,11 +27,17 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
   const { theme } = useTheme();
   const isMobile = useIsMobile();
   const { wordWrap, setWordWrap } = useSettings();
+  const { user } = useAuth();
 
   useEffect(() => {
     const controller = new AbortController();
     api.get<Snippet>(`/api/snippets/${snippetId}`, { signal: controller.signal })
-      .then(setSnippet)
+      .then((data) => {
+        setSnippet(data);
+        if (data.language === "markdown") {
+          setShowPreview(true);
+        }
+      })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setError(true);
@@ -38,6 +45,20 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
       .finally(() => setLoading(false));
     return () => controller.abort();
   }, [snippetId]);
+
+  useEffect(() => {
+    if (!snippet?.is_public) return;
+    let meta = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.name = "robots";
+      document.head.appendChild(meta);
+    }
+    meta.content = "noindex, nofollow";
+    return () => {
+      meta?.remove();
+    };
+  }, [snippet?.is_public]);
 
   const handleCopy = () => {
     if (!snippet) return;
@@ -90,6 +111,8 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
 
   const markdownLike = isMarkdownLike(snippet.language);
 
+  const isOwner = !!(user && snippet && snippet.user_id === user.id);
+
   const overflowItems: OverflowMenuItem[] = [
     { label: linkCopied ? "copied!" : "copy link", onClick: handleCopyLink },
     ...(markdownLike
@@ -107,11 +130,13 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
       onClick: () => setWordWrap(!wordWrap),
       active: wordWrap,
     },
-    {
-      label: "edit",
-      onClick: () =>
-        navigate({ to: "/snippets/$snippetId/edit", params: { snippetId } }),
-    },
+    ...(isOwner
+      ? [{
+          label: "edit",
+          onClick: () =>
+            navigate({ to: "/snippets/$snippetId/edit", params: { snippetId } }),
+        }]
+      : []),
   ];
 
   return (
@@ -225,6 +250,7 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
                 <div style={{ width: "1px", height: "20px", background: "var(--color-border)", opacity: 0.5 }} />
 
                 {/* Right group: edit + copy */}
+                {isOwner && (
                 <button
                   onClick={() => navigate({ to: "/snippets/$snippetId/edit", params: { snippetId } })}
                   style={{
@@ -254,6 +280,7 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
                 >
                   edit
                 </button>
+                )}
                 <button
                   onClick={handleCopy}
                   style={{
@@ -301,6 +328,29 @@ export function ViewSnippet({ snippetId }: { snippetId: string }) {
             <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 600, color: "var(--color-text)", fontFamily: "var(--font-sans)", letterSpacing: "-0.02em", lineHeight: 1.3, flex: 1, minWidth: 0 }}>
               {snippet.title}
             </h1>
+            {snippet.is_public && (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "30px",
+                  height: "30px",
+                  borderRadius: "8px",
+                  background: "var(--color-accent-dim)",
+                  color: "var(--color-accent)",
+                  flexShrink: 0,
+                  marginTop: "4px",
+                }}
+                title="Public snippet"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="2" y1="12" x2="22" y2="12" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                </svg>
+              </span>
+            )}
             <span style={{ display: "inline-flex", alignItems: "center", padding: "4px 12px", borderRadius: "8px", background: "var(--color-accent-dim)", color: "var(--color-accent)", fontFamily: "var(--font-mono)", fontSize: "13px", fontWeight: 500, letterSpacing: "0.03em", flexShrink: 0, marginTop: "4px" }}>
               {snippet.language}
             </span>

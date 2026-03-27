@@ -3,9 +3,9 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from app.api.deps import CurrentUser, SessionDep
+from app.api.deps import CurrentUser, OptionalCurrentUser, SessionDep
 from app.models.pagination import PaginatedResponse, PaginationLimit, PaginationOffset
-from app.models.snippet import SnippetCreate, SnippetListRead, SnippetRead, SnippetSortField, SnippetUpdate
+from app.models.snippet import SnippetCreate, SnippetListRead, SnippetPublicRead, SnippetRead, SnippetSortField, SnippetUpdate
 from app.services.snippet_service import (
     create_snippet,
     delete_snippet,
@@ -13,6 +13,7 @@ from app.services.snippet_service import (
     get_snippet_by_short_code,
     list_snippets_by_user,
     toggle_snippet_pin,
+    toggle_snippet_visibility,
     update_snippet,
 )
 
@@ -60,12 +61,16 @@ async def resolve_short_code(code: str, session: SessionDep) -> dict:
     return {"snippet_id": str(snippet.id)}
 
 
-@router.get("/{snippet_id}", response_model=SnippetRead)
-async def get_one(snippet_id: uuid.UUID, current_user: CurrentUser, session: SessionDep) -> SnippetRead:
+@router.get("/{snippet_id}")
+async def get_one(snippet_id: uuid.UUID, current_user: OptionalCurrentUser, session: SessionDep) -> SnippetRead | SnippetPublicRead:
     snippet = await get_snippet_by_id(session=session, snippet_id=snippet_id)
-    if not snippet or snippet.user_id != current_user.id:
+    if not snippet:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Snippet not found")
-    return SnippetRead.model_validate(snippet)
+    if current_user and snippet.user_id == current_user.id:
+        return SnippetRead.model_validate(snippet)
+    if snippet.is_public:
+        return SnippetPublicRead.model_validate(snippet)
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Snippet not found")
 
 
 @router.delete("/{snippet_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -82,6 +87,15 @@ async def toggle_pin(snippet_id: uuid.UUID, current_user: CurrentUser, session: 
     if not snippet or snippet.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Snippet not found")
     snippet = await toggle_snippet_pin(session=session, snippet=snippet)
+    return SnippetRead.model_validate(snippet)
+
+
+@router.patch("/{snippet_id}/visibility", response_model=SnippetRead)
+async def toggle_visibility(snippet_id: uuid.UUID, current_user: CurrentUser, session: SessionDep) -> SnippetRead:
+    snippet = await get_snippet_by_id(session=session, snippet_id=snippet_id)
+    if not snippet or snippet.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Snippet not found")
+    snippet = await toggle_snippet_visibility(session=session, snippet=snippet)
     return SnippetRead.model_validate(snippet)
 
 

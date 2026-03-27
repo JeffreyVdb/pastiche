@@ -7,6 +7,7 @@ interface ConfirmDialogProps {
   title: string;
   message: string;
   confirmLabel?: string;
+  variant?: "danger" | "default";
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -16,6 +17,7 @@ export function ConfirmDialog({
   title,
   message,
   confirmLabel = "confirm",
+  variant = "danger",
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -115,7 +117,9 @@ export function ConfirmDialog({
               right: "28px",
               height: "1px",
               background:
-                "linear-gradient(90deg, transparent, rgba(239,68,68,0.4), transparent)",
+                variant === "default"
+                  ? "linear-gradient(90deg, transparent, rgba(0,212,184,0.4), transparent)"
+                  : "linear-gradient(90deg, transparent, rgba(239,68,68,0.4), transparent)",
               borderRadius: "1px",
             }}
           />
@@ -192,21 +196,39 @@ export function ConfirmDialog({
             style={{
               flex: 1,
               padding: isMobile ? "12px 14px" : "8px 14px",
-              background: confirmHovered
-                ? "rgba(239,68,68,0.18)"
-                : "rgba(239,68,68,0.12)",
-              border: `1px solid ${confirmHovered ? "rgba(239,68,68,0.7)" : "rgba(239,68,68,0.5)"}`,
+              background:
+                variant === "default"
+                  ? confirmHovered
+                    ? "rgba(0,212,184,0.18)"
+                    : "rgba(0,212,184,0.12)"
+                  : confirmHovered
+                  ? "rgba(239,68,68,0.18)"
+                  : "rgba(239,68,68,0.12)",
+              border:
+                variant === "default"
+                  ? `1px solid ${confirmHovered ? "rgba(0,212,184,0.7)" : "rgba(0,212,184,0.5)"}`
+                  : `1px solid ${confirmHovered ? "rgba(239,68,68,0.7)" : "rgba(239,68,68,0.5)"}`,
               borderRadius: "7px",
-              color: confirmHovered ? "rgb(255,90,90)" : "rgb(239,68,68)",
+              color:
+                variant === "default"
+                  ? "var(--color-accent)"
+                  : confirmHovered
+                  ? "rgb(255,90,90)"
+                  : "rgb(239,68,68)",
               fontFamily: "var(--font-mono)",
               fontSize: "11px",
               fontWeight: 500,
               letterSpacing: "0.04em",
               cursor: "pointer",
               transition: "background 0.15s, border-color 0.15s, color 0.15s",
-              boxShadow: confirmHovered
-                ? "0 0 12px rgba(239,68,68,0.15)"
-                : "none",
+              boxShadow:
+                variant === "default"
+                  ? confirmHovered
+                    ? "0 0 12px rgba(0,212,184,0.15)"
+                    : "none"
+                  : confirmHovered
+                  ? "0 0 12px rgba(239,68,68,0.15)"
+                  : "none",
             }}
           >
             {confirmLabel}

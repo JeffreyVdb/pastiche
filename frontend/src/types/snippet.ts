@@ -6,6 +6,7 @@ export interface SnippetListItem {
   content_size: number;
   short_code: string;
   is_pinned: boolean;
+  is_public: boolean;
   color: string | null;
   created_at: string;
   updated_at: string;
@@ -13,12 +14,13 @@ export interface SnippetListItem {
 
 export interface Snippet {
   id: string;
-  user_id: string;
+  user_id?: string;
   title: string;
   language: string;
   content: string;
   short_code: string;
   is_pinned: boolean;
+  is_public: boolean;
   color: string | null;
   created_at: string;
   updated_at: string;

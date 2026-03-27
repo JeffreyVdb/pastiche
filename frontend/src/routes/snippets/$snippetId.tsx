@@ -1,4 +1,4 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ViewSnippet } from "@/pages/ViewSnippet";
@@ -36,11 +36,15 @@ function ViewSnippetPage() {
     );
   }
 
-  if (!user) return <Navigate to="/sign-in" />;
+  if (user) {
+    return (
+      <AppLayout>
+        <ViewSnippet snippetId={snippetId} />
+      </AppLayout>
+    );
+  }
 
-  return (
-    <AppLayout>
-      <ViewSnippet snippetId={snippetId} />
-    </AppLayout>
-  );
+  // Unauthenticated: try to load without AppLayout
+  // Public snippets will load; private ones will show "snippet not found"
+  return <ViewSnippet snippetId={snippetId} />;
 }

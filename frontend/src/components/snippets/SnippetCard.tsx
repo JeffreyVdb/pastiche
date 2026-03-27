@@ -14,6 +14,7 @@ interface SnippetCardProps {
   onDelete: (id: string) => void;
   onTogglePin: (id: string) => void;
   onColorChange: (id: string, color: string | null) => void;
+  onToggleVisibility: (id: string) => void;
   animateEntrance?: boolean;
 }
 
@@ -25,7 +26,7 @@ function PinIcon({ size = 14 }: { size?: number }) {
   );
 }
 
-export function SnippetCard({ snippet, onDelete, onTogglePin, onColorChange, animateEntrance }: SnippetCardProps) {
+export function SnippetCard({ snippet, onDelete, onTogglePin, onColorChange, onToggleVisibility, animateEntrance }: SnippetCardProps) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { resolved } = useTheme();
@@ -34,6 +35,7 @@ export function SnippetCard({ snippet, onDelete, onTogglePin, onColorChange, ani
   const [kebabHovered, setKebabHovered] = useState(false);
   const [pinHovered, setPinHovered] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [publicConfirmOpen, setPublicConfirmOpen] = useState(false);
   const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [pinFocused, setPinFocused] = useState(false);
 
@@ -41,6 +43,16 @@ export function SnippetCard({ snippet, onDelete, onTogglePin, onColorChange, ani
     {
       label: snippet.is_pinned ? "unpin" : "pin",
       onClick: () => onTogglePin(snippet.id),
+    },
+    {
+      label: snippet.is_public ? "make private" : "make public",
+      onClick: () => {
+        if (snippet.is_public) {
+          onToggleVisibility(snippet.id);
+        } else {
+          setPublicConfirmOpen(true);
+        }
+      },
     },
     {
       label: "copy link",
@@ -114,6 +126,29 @@ export function SnippetCard({ snippet, onDelete, onTogglePin, onColorChange, ani
         >
           {snippet.title}
         </h3>
+
+        {snippet.is_public && (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "22px",
+              height: "22px",
+              borderRadius: "5px",
+              background: "var(--color-accent-dim)",
+              color: "var(--color-accent)",
+              flexShrink: 0,
+            }}
+            title="Public snippet"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="2" y1="12" x2="22" y2="12" />
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+            </svg>
+          </span>
+        )}
 
         {/* Language badge */}
         <span
@@ -249,6 +284,19 @@ export function SnippetCard({ snippet, onDelete, onTogglePin, onColorChange, ani
         onDelete(snippet.id);
       }}
       onCancel={() => setConfirmOpen(false)}
+    />
+
+    <ConfirmDialog
+      open={publicConfirmOpen}
+      title="Make snippet public"
+      message="Anyone with the link will be able to view this snippet without logging in. You can make it private again at any time."
+      confirmLabel="make public"
+      variant="default"
+      onConfirm={() => {
+        setPublicConfirmOpen(false);
+        onToggleVisibility(snippet.id);
+      }}
+      onCancel={() => setPublicConfirmOpen(false)}
     />
     </>
   );

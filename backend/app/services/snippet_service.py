@@ -53,6 +53,7 @@ async def list_snippets_by_user(
             Snippet.updated_at,
             Snippet.short_code,
             Snippet.is_pinned,
+            Snippet.is_public,
             Snippet.color,
         )
         .where(*where_clauses)
@@ -104,6 +105,15 @@ async def get_snippet_by_short_code(session: AsyncSession, code: str) -> Snippet
 
 async def toggle_snippet_pin(session: AsyncSession, snippet: Snippet) -> Snippet:
     snippet.is_pinned = not snippet.is_pinned
+    snippet.updated_at = datetime.now(UTC).replace(tzinfo=None)
+    session.add(snippet)
+    await session.commit()
+    await session.refresh(snippet)
+    return snippet
+
+
+async def toggle_snippet_visibility(session: AsyncSession, snippet: Snippet) -> Snippet:
+    snippet.is_public = not snippet.is_public
     snippet.updated_at = datetime.now(UTC).replace(tzinfo=None)
     session.add(snippet)
     await session.commit()
