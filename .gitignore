@@ -35,6 +35,7 @@ htmlcov/
 node_modules/
 dist/
 .npm/
+package-lock.json
 
 # Database
 pgdata/
