@@ -17,11 +17,18 @@ import { CodeEditor } from "./CodeEditor";
 interface TaskEditorProps {
   value: string;
   onChange: (value: string) => void;
+  readOnly?: boolean;
+  allowCodeMode?: boolean;
 }
 
 // ── Main component ───────────────────────────────────────────────────────────
 
-export function TaskEditor({ value, onChange }: TaskEditorProps) {
+export function TaskEditor({
+  value,
+  onChange,
+  readOnly = false,
+  allowCodeMode = true,
+}: TaskEditorProps) {
   const [doc, setDoc] = useState<TaskDocument>(() => parseMarkdownTasks(value));
   const [codeMode, setCodeMode] = useState(false);
   const suppressSync = useRef(false);
@@ -99,43 +106,56 @@ export function TaskEditor({ value, onChange }: TaskEditorProps) {
           }}
         >
           <span>This document contains content the task editor cannot display.</span>
-          <button type="button" onClick={() => setCodeMode(true)} style={pillBtnStyle}>
-            edit as code
-          </button>
+          {allowCodeMode ? (
+            <button type="button" onClick={() => setCodeMode(true)} style={pillBtnStyle}>
+              edit as code
+            </button>
+          ) : (
+            <span style={{ fontSize: "11px", opacity: 0.8 }}>switch to source view</span>
+          )}
         </div>
       )}
 
       {/* Toolbar */}
-      <div
-        style={{
-          padding: "10px 14px",
-          borderBottom: "1px solid var(--color-border)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <button
-          type="button"
-          onClick={() => {
-            const next = cloneDocument(doc);
-            next.sections.push(createSection());
-            commit(next);
+      {(!readOnly || allowCodeMode) && (
+        <div
+          style={{
+            padding: "10px 14px",
+            borderBottom: "1px solid var(--color-border)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
           }}
-          style={pillBtnStyle}
         >
-          + add section
-        </button>
-        <button type="button" onClick={() => setCodeMode(true)} style={mutedPillStyle}>
-          code editor
-        </button>
-      </div>
+          <div>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={() => {
+                  const next = cloneDocument(doc);
+                  next.sections.push(createSection());
+                  commit(next);
+                }}
+                style={pillBtnStyle}
+              >
+                + add section
+              </button>
+            )}
+          </div>
+          {allowCodeMode && (
+            <button type="button" onClick={() => setCodeMode(true)} style={mutedPillStyle}>
+              code editor
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Preamble tasks */}
       {doc.preamble.length > 0 && (
         <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--color-border)" }}>
           <TaskList
             tasks={doc.preamble}
+            readOnly={readOnly}
             onUpdate={(tasks) => {
               const next = cloneDocument(doc);
               next.preamble = tasks;
@@ -150,6 +170,7 @@ export function TaskEditor({ value, onChange }: TaskEditorProps) {
         <SectionBlock
           key={si}
           section={section}
+          readOnly={readOnly}
           onUpdate={(updated) => {
             const next = cloneDocument(doc);
             next.sections[si] = updated;
@@ -174,7 +195,11 @@ export function TaskEditor({ value, onChange }: TaskEditorProps) {
             fontSize: "13px",
           }}
         >
-          No sections yet. Click "+ add section" to get started.
+          {readOnly
+            ? "No tasks yet."
+            : allowCodeMode
+              ? 'No sections yet. Click "+ add section" to get started.'
+              : 'No tasks yet. Add a section here, or switch to source view to edit the raw markdown.'}
         </div>
       )}
     </div>
@@ -185,10 +210,12 @@ export function TaskEditor({ value, onChange }: TaskEditorProps) {
 
 function SectionBlock({
   section,
+  readOnly,
   onUpdate,
   onDelete,
 }: {
   section: Section;
+  readOnly: boolean;
   onUpdate: (s: Section) => void;
   onDelete: () => void;
 }) {
@@ -232,6 +259,7 @@ function SectionBlock({
         <input
           type="text"
           value={section.title}
+          readOnly={readOnly}
           onChange={(e) => onUpdate({ ...section, title: e.target.value })}
           style={{
             flex: 1,
@@ -247,69 +275,74 @@ function SectionBlock({
           }}
           placeholder="Section title"
         />
-        <div style={{ position: "relative", flexShrink: 0 }} ref={menuRef}>
-          <button
-            type="button"
-            onClick={() => setMenuOpen((v) => !v)}
-            style={iconBtnStyle}
-            title="Section options"
-          >
-            ⋯
-          </button>
-          {menuOpen && (
-            <div
-              style={{
-                position: "absolute",
-                right: 0,
-                top: "100%",
-                marginTop: "4px",
-                background: "var(--color-surface)",
-                border: "1px solid var(--color-border)",
-                borderRadius: "8px",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                zIndex: 10,
-                minWidth: "140px",
-                overflow: "hidden",
-              }}
+        {!readOnly && (
+          <div style={{ position: "relative", flexShrink: 0 }} ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              style={iconBtnStyle}
+              title="Section options"
             >
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onDelete();
+              ⋯
+            </button>
+            {menuOpen && (
+              <div
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: "100%",
+                  marginTop: "4px",
+                  background: "var(--color-surface)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: "8px",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                  zIndex: 10,
+                  minWidth: "140px",
+                  overflow: "hidden",
                 }}
-                style={menuItemStyle}
               >
-                Delete section
-              </button>
-            </div>
-          )}
-        </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onDelete();
+                  }}
+                  style={menuItemStyle}
+                >
+                  Delete section
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Tasks */}
       <div style={{ padding: "0 14px 8px" }}>
         <TaskList
           tasks={section.tasks}
+          readOnly={readOnly}
           onUpdate={(tasks) => onUpdate({ ...section, tasks })}
         />
 
         {/* Add task button */}
-        <button
-          type="button"
-          onClick={() => {
-            const updated = { ...section, tasks: [...section.tasks, createTask()] };
-            onUpdate(updated);
-          }}
-          style={{
-            ...pillBtnStyle,
-            marginTop: "6px",
-            fontSize: "12px",
-            opacity: 0.6,
-          }}
-        >
-          + add task
-        </button>
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={() => {
+              const updated = { ...section, tasks: [...section.tasks, createTask()] };
+              onUpdate(updated);
+            }}
+            style={{
+              ...pillBtnStyle,
+              marginTop: "6px",
+              fontSize: "12px",
+              opacity: 0.6,
+            }}
+          >
+            + add task
+          </button>
+        )}
       </div>
     </div>
   );
@@ -321,10 +354,12 @@ function TaskList({
   tasks,
   onUpdate,
   depth = 0,
+  readOnly = false,
 }: {
   tasks: Task[];
   onUpdate: (tasks: Task[]) => void;
   depth?: number;
+  readOnly?: boolean;
 }) {
   return (
     <div>
@@ -333,6 +368,7 @@ function TaskList({
           key={task.id}
           task={task}
           depth={depth}
+          readOnly={readOnly}
           onUpdate={(updated) => {
             const next = [...tasks];
             next[ti] = updated;
@@ -384,6 +420,7 @@ function TaskList({
 function TaskRow({
   task,
   depth,
+  readOnly,
   onUpdate,
   onDelete,
   onAddSibling,
@@ -392,6 +429,7 @@ function TaskRow({
 }: {
   task: Task;
   depth: number;
+  readOnly: boolean;
   onUpdate: (t: Task) => void;
   onDelete: () => void;
   onAddSibling: () => void;
@@ -426,6 +464,7 @@ function TaskRow({
   }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (readOnly) return;
     if (e.key === "Enter") {
       e.preventDefault();
       onAddSibling();
@@ -459,6 +498,7 @@ function TaskRow({
         <input
           type="checkbox"
           checked={task.done}
+          disabled={readOnly}
           onChange={(e) => onUpdate({ ...task, done: e.target.checked })}
           style={{
             width: "16px",
@@ -475,6 +515,7 @@ function TaskRow({
           data-task-input
           type="text"
           value={task.text}
+          readOnly={readOnly}
           onChange={(e) => onUpdate({ ...task, text: e.target.value })}
           onKeyDown={handleKeyDown}
           placeholder="Task description"
@@ -493,64 +534,66 @@ function TaskRow({
         />
 
         {/* Action buttons */}
-        <div style={{ display: "flex", alignItems: "center", gap: "2px", flexShrink: 0 }}>
-          <button
-            type="button"
-            onClick={onAddSibling}
-            style={iconBtnStyle}
-            title="Add task below"
-          >
-            +
-          </button>
-          {depth < 3 && (
+        {!readOnly && (
+          <div style={{ display: "flex", alignItems: "center", gap: "2px", flexShrink: 0 }}>
             <button
               type="button"
-              onClick={onAddChild}
+              onClick={onAddSibling}
               style={iconBtnStyle}
-              title="Add subtask"
+              title="Add task below"
             >
-              ▾
+              +
             </button>
-          )}
-          <div style={{ position: "relative" }} ref={menuRef}>
-            <button
-              type="button"
-              onClick={() => setMenuOpen((v) => !v)}
-              style={iconBtnStyle}
-              title="Task options"
-            >
-              ⋯
-            </button>
-            {menuOpen && (
-              <div
-                style={{
-                  position: "absolute",
-                  right: 0,
-                  top: "100%",
-                  marginTop: "4px",
-                  background: "var(--color-surface)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "8px",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                  zIndex: 10,
-                  minWidth: "140px",
-                  overflow: "hidden",
-                }}
+            {depth < 3 && (
+              <button
+                type="button"
+                onClick={onAddChild}
+                style={iconBtnStyle}
+                title="Add subtask"
               >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onDelete();
-                  }}
-                  style={menuItemStyle}
-                >
-                  Delete task
-                </button>
-              </div>
+                ▾
+              </button>
             )}
+            <div style={{ position: "relative" }} ref={menuRef}>
+              <button
+                type="button"
+                onClick={() => setMenuOpen((v) => !v)}
+                style={iconBtnStyle}
+                title="Task options"
+              >
+                ⋯
+              </button>
+              {menuOpen && (
+                <div
+                  style={{
+                    position: "absolute",
+                    right: 0,
+                    top: "100%",
+                    marginTop: "4px",
+                    background: "var(--color-surface)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: "8px",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                    zIndex: 10,
+                    minWidth: "140px",
+                    overflow: "hidden",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onDelete();
+                    }}
+                    style={menuItemStyle}
+                  >
+                    Delete task
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Children */}

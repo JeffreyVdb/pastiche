@@ -2,13 +2,19 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ViewSnippet } from "@/pages/ViewSnippet";
+import { parseSnippetDetailView } from "@/lib/snippet-detail-view";
 
 export const Route = createFileRoute("/snippets/$snippetId")({
+  validateSearch: (search: Record<string, unknown>) => {
+    const view = parseSnippetDetailView(search.view);
+    return view ? { view } : {};
+  },
   component: ViewSnippetPage,
 });
 
 function ViewSnippetPage() {
   const { snippetId } = Route.useParams();
+  const { view } = Route.useSearch();
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -39,12 +45,12 @@ function ViewSnippetPage() {
   if (user) {
     return (
       <AppLayout>
-        <ViewSnippet snippetId={snippetId} />
+        <ViewSnippet snippetId={snippetId} requestedView={view} />
       </AppLayout>
     );
   }
 
   // Unauthenticated: try to load without AppLayout
   // Public snippets will load; private ones will show "snippet not found"
-  return <ViewSnippet snippetId={snippetId} />;
+  return <ViewSnippet snippetId={snippetId} requestedView={view} />;
 }

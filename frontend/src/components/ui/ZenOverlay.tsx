@@ -6,12 +6,14 @@ import remarkGfm from "remark-gfm";
 import type { Snippet } from "@/types/snippet";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { useSettings } from "../../hooks/useSettings";
-import { getHighlighterLanguage, isMarkdownLike } from "@/lib/highlighter-lang";
+import { getHighlighterLanguage } from "@/lib/highlighter-lang";
+import type { SnippetDetailView } from "@/lib/snippet-detail-view";
 
 interface ZenOverlayProps {
   open: boolean;
   snippet: Snippet;
-  showPreview: boolean;
+  view: SnippetDetailView;
+  content: string;
   highlighterStyle: { [key: string]: CSSProperties };
   onExit: () => void;
 }
@@ -19,7 +21,8 @@ interface ZenOverlayProps {
 export function ZenOverlay({
   open,
   snippet,
-  showPreview,
+  view,
+  content,
   highlighterStyle,
   onExit,
 }: ZenOverlayProps) {
@@ -122,8 +125,7 @@ export function ZenOverlay({
 
   if (!open) return null;
 
-  const isMarkdown = isMarkdownLike(snippet.language);
-  const maxWidth = isMarkdown && showPreview ? "720px" : "900px";
+  const maxWidth = view === "preview" ? "720px" : "900px";
 
   return createPortal(
     <div
@@ -185,7 +187,7 @@ export function ZenOverlay({
             : "60px 40px",
         }}
       >
-        {isMarkdown && showPreview ? (
+        {view === "preview" ? (
           <div
             className="markdown-preview"
             style={{
@@ -193,7 +195,7 @@ export function ZenOverlay({
             }}
           >
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {snippet.content}
+              {content}
             </ReactMarkdown>
           </div>
         ) : (
@@ -211,7 +213,7 @@ export function ZenOverlay({
               borderRadius: 0,
             }}
           >
-            {snippet.content}
+            {content}
           </SyntaxHighlighter>
         )}
       </div>
