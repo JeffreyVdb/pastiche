@@ -22,6 +22,14 @@ interface HomeProps {
   initialQuery?: string;
 }
 
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+
+  const tagName = target.tagName.toLowerCase();
+  return tagName === "input" || tagName === "textarea" || tagName === "select";
+}
+
 function getNewLinkStyle(): CSSProperties {
   return {
     display: "inline-flex",
@@ -236,6 +244,20 @@ export function Home({ initialQuery = "" }: HomeProps) {
       cancelPinnedRequest();
     };
   }, [cancelListRequest, cancelPinnedRequest]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "/") return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (isEditableTarget(event.target)) return;
+
+      event.preventDefault();
+      setSearchOpen(true);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   async function handleDelete(id: string) {
     const inPinned = pinnedSnippets.some((snippet) => snippet.id === id);
