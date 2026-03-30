@@ -4,6 +4,7 @@ export const LANGUAGES = [
   "c",
   "cpp",
   "css",
+  "diff",
   "elixir",
   "go",
   "html",

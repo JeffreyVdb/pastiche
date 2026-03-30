@@ -1,0 +1,36 @@
+[mcp_servers.playwright]
+command = "npx"
+args = ["@playwright/mcp@latest"]
+
+[mcp_servers.toktoken]
+command = "toktoken"
+args = ["serve"]
+enabled_tools = [
+  "codebase_detect",
+  "index_create",
+  "index_update",
+  "search_symbols",
+  "search_text",
+  "inspect_outline",
+  "inspect_symbol",
+  "inspect_file",
+  "inspect_tree",
+  "stats",
+  "projects_list",
+  "cache_clear",
+  "index_github",
+  "inspect_bundle",
+  "find_importers",
+  "find_references",
+  "find_callers",
+  "search_cooccurrence",
+  "search_similar",
+  "inspect_dependencies",
+  "inspect_hierarchy",
+  "inspect_cycles",
+  "inspect_blast_radius",
+  "find_dead",
+  "index_file",
+  "suggest",
+  "help",
+]
