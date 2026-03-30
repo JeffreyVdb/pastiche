@@ -267,6 +267,119 @@ async def test_list_pagination_with_sort(client, test_session):
 
 
 # ---------------------------------------------------------------------------
+# List endpoint: search
+# ---------------------------------------------------------------------------
+
+
+async def test_list_search_matches_title(client, test_session):
+    user = await _create_user(test_session, github_id=16, username="u_search_title")
+    _auth(client, user)
+    title_match = await _create_snippet(test_session, user_id=user.id, title="Debounce hook", content="alpha")
+    await _create_snippet(test_session, user_id=user.id, title="Clipboard helper", content="debounce lives here")
+
+    response = client.get("/api/snippets?q=debounce%20hook")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    assert [item["id"] for item in body["items"]] == [str(title_match.id)]
+
+
+async def test_list_search_matches_content(client, test_session):
+    user = await _create_user(test_session, github_id=17, username="u_search_content")
+    _auth(client, user)
+    content_match = await _create_snippet(
+        test_session,
+        user_id=user.id,
+        title="Clipboard helper",
+        content="This snippet uses a stable debounce timer.",
+    )
+    await _create_snippet(test_session, user_id=user.id, title="Another entry", content="Nothing relevant")
+
+    response = client.get("/api/snippets?q=stable%20debounce")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    assert body["items"][0]["id"] == str(content_match.id)
+
+
+async def test_list_search_ranks_title_matches_above_content_only(client, test_session):
+    user = await _create_user(test_session, github_id=18, username="u_search_rank")
+    _auth(client, user)
+    title_match = await _create_snippet(test_session, user_id=user.id, title="Debounce hook", content="plain body")
+    content_match = await _create_snippet(
+        test_session,
+        user_id=user.id,
+        title="Timer helper",
+        content="This snippet implements a debounce hook.",
+    )
+
+    response = client.get("/api/snippets?q=debounce%20hook")
+    assert response.status_code == 200
+    ids = [item["id"] for item in response.json()["items"]]
+    assert ids[:2] == [str(title_match.id), str(content_match.id)]
+
+
+async def test_list_search_is_case_insensitive(client, test_session):
+    user = await _create_user(test_session, github_id=19, username="u_search_case")
+    _auth(client, user)
+    snippet = await _create_snippet(test_session, user_id=user.id, title="JWT middleware", content="Bearer token")
+
+    response = client.get("/api/snippets?q=jwt")
+    assert response.status_code == 200
+    assert response.json()["items"][0]["id"] == str(snippet.id)
+
+
+async def test_list_search_splits_multi_word_queries(client, test_session):
+    user = await _create_user(test_session, github_id=21, username="u_search_tokens")
+    _auth(client, user)
+    snippet = await _create_snippet(
+        test_session,
+        user_id=user.id,
+        title="Cache helper",
+        content="Refresh token cache invalidation example",
+    )
+    await _create_snippet(test_session, user_id=user.id, title="Refresh only", content="cache only")
+
+    response = client.get("/api/snippets?q=%20%20refresh%20%20token%20")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    assert body["items"][0]["id"] == str(snippet.id)
+
+
+async def test_list_search_paginates_results(client, test_session):
+    user = await _create_user(test_session, github_id=22, username="u_search_page")
+    _auth(client, user)
+    first = await _create_snippet(test_session, user_id=user.id, title="alpha snippet", content="match alpha")
+    second = await _create_snippet(test_session, user_id=user.id, title="beta snippet", content="match alpha")
+    third = await _create_snippet(test_session, user_id=user.id, title="gamma snippet", content="match alpha")
+
+    page1 = client.get("/api/snippets?q=alpha&limit=2&offset=0").json()
+    page2 = client.get("/api/snippets?q=alpha&limit=2&offset=2").json()
+
+    assert page1["total"] == 3
+    assert len(page1["items"]) == 2
+    assert len(page2["items"]) == 1
+    seen = {item["id"] for item in page1["items"] + page2["items"]}
+    assert seen == {str(first.id), str(second.id), str(third.id)}
+
+
+async def test_list_search_respects_pinned_filter(client, test_session):
+    user = await _create_user(test_session, github_id=23, username="u_search_pin")
+    _auth(client, user)
+    pinned = await _create_snippet(test_session, user_id=user.id, title="Debounce hook", content="alpha")
+    unpinned = await _create_snippet(test_session, user_id=user.id, title="Debounce util", content="alpha")
+
+    client.patch(f"/api/snippets/{pinned.id}/pin")
+
+    pinned_only = client.get("/api/snippets?q=debounce&pinned=true").json()
+    unpinned_only = client.get("/api/snippets?q=debounce&pinned=false").json()
+
+    assert [item["id"] for item in pinned_only["items"]] == [str(pinned.id)]
+    assert [item["id"] for item in unpinned_only["items"]] == [str(unpinned.id)]
+
+
+# ---------------------------------------------------------------------------
 # Short code tests
 # ---------------------------------------------------------------------------
 

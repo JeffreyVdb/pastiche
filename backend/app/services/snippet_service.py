@@ -1,12 +1,32 @@
 import uuid
+import re
 from datetime import UTC, datetime
 
-from sqlalchemy import asc, desc, func, text
+from sqlalchemy import and_, asc, case, desc, func, or_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.core.short_code import int_to_base36
 from app.models.snippet import Snippet, SnippetSortField
+
+_WHITESPACE_RE = re.compile(r"\s+")
+
+
+def _normalize_query(value: str) -> str:
+    return _WHITESPACE_RE.sub(" ", value.strip()).lower()
+
+
+def _search_tokens(value: str | None) -> tuple[str, list[str]]:
+    if not value:
+        return "", []
+
+    normalized = _normalize_query(value)
+    tokens = [token for token in normalized.split(" ") if len(token) >= 2]
+    return normalized, tokens
+
+
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_")
 
 
 async def create_snippet(
@@ -33,15 +53,68 @@ async def list_snippets_by_user(
     limit: int = 50,
     offset: int = 0,
     pinned: bool | None = None,
+    q: str | None = None,
 ) -> tuple[list[dict], int]:
     where_clauses = [Snippet.user_id == user_id]
     if pinned is not None:
         where_clauses.append(Snippet.is_pinned == pinned)
+
+    normalized_query, tokens = _search_tokens(q)
+    title_lower = func.lower(Snippet.title)
+    content_lower = func.lower(Snippet.content)
+
+    if tokens:
+        token_filters = []
+        for token in tokens:
+            pattern = f"%{_escape_like(token)}%"
+            token_filters.append(
+                or_(
+                    title_lower.like(pattern, escape="\\"),
+                    content_lower.like(pattern, escape="\\"),
+                )
+            )
+        where_clauses.append(and_(*token_filters))
+
     total = await session.scalar(
         select(func.count()).select_from(Snippet).where(*where_clauses)
     )
-    sort_column = getattr(Snippet, sort_by.value)
-    order_expr = desc(sort_column) if order == "desc" else asc(sort_column)
+
+    if tokens:
+        escaped_query = _escape_like(normalized_query)
+        query_contains_pattern = f"%{escaped_query}%"
+        query_prefix_pattern = f"{escaped_query}%"
+
+        rank_exact_title = case((title_lower == normalized_query, 1), else_=0)
+        rank_title_prefix = case(
+            (title_lower.like(query_prefix_pattern, escape="\\"), 1),
+            else_=0,
+        )
+        rank_title_query = case(
+            (title_lower.like(query_contains_pattern, escape="\\"), 1),
+            else_=0,
+        )
+        rank_title_tokens = sum(
+            case((title_lower.like(f"%{_escape_like(token)}%", escape="\\"), 1), else_=0)
+            for token in tokens
+        )
+        rank_content_tokens = sum(
+            case((content_lower.like(f"%{_escape_like(token)}%", escape="\\"), 1), else_=0)
+            for token in tokens
+        )
+        order_by = [
+            desc(rank_exact_title),
+            desc(rank_title_prefix),
+            desc(rank_title_query),
+            desc(rank_title_tokens),
+            desc(rank_content_tokens),
+            desc(Snippet.is_pinned),
+            desc(Snippet.updated_at),
+        ]
+    else:
+        sort_column = getattr(Snippet, sort_by.value)
+        order_expr = desc(sort_column) if order == "desc" else asc(sort_column)
+        order_by = [order_expr]
+
     stmt = (
         select(  # type: ignore[call-overload]  # SQLModel multi-column select not typed
             Snippet.id,
@@ -57,7 +130,7 @@ async def list_snippets_by_user(
             Snippet.color,
         )
         .where(*where_clauses)
-        .order_by(order_expr)
+        .order_by(*order_by)
         .limit(limit)
         .offset(offset)
     )

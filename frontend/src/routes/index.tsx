@@ -1,14 +1,20 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { getCommittedSnippetSearchQuery } from "@/lib/snippet-search";
 import { Home } from "@/pages/Home";
 
 export const Route = createFileRoute("/")({
+  validateSearch: (search: Record<string, unknown>) => {
+    const q = typeof search.q === "string" ? getCommittedSnippetSearchQuery(search.q) : "";
+    return q ? { q } : {};
+  },
   component: IndexPage,
 });
 
 function IndexPage() {
   const { user, loading } = useAuth();
+  const { q } = Route.useSearch();
 
   if (loading) {
     return (
@@ -41,7 +47,7 @@ function IndexPage() {
 
   return (
     <AppLayout>
-      <Home />
+      <Home initialQuery={q} />
     </AppLayout>
   );
 }

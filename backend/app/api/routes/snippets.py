@@ -38,12 +38,20 @@ async def list_mine(
     session: SessionDep,
     sort_by: SnippetSortField = Query(default=SnippetSortField.created_at),
     order: Literal["asc", "desc"] = Query(default="desc"),
+    q: str | None = Query(default=None),
     limit: PaginationLimit = 50,
     offset: PaginationOffset = 0,
     pinned: bool | None = Query(default=None),
 ) -> PaginatedResponse[SnippetListRead]:
     rows, total = await list_snippets_by_user(
-        session=session, user_id=current_user.id, sort_by=sort_by, order=order, limit=limit, offset=offset, pinned=pinned
+        session=session,
+        user_id=current_user.id,
+        sort_by=sort_by,
+        order=order,
+        limit=limit,
+        offset=offset,
+        pinned=pinned,
+        q=q,
     )
     return PaginatedResponse(
         items=[SnippetListRead.model_validate(r) for r in rows],

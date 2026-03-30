@@ -1,108 +1,277 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
-import { Link } from "@tanstack/react-router";
-import { useAuth } from "@/hooks/useAuth";
-import { useTheme } from "@/hooks/useTheme";
-import { api } from "@/lib/api";
-import type { SnippetListItem } from "@/types/snippet";
-import type { PaginatedResponse } from "@/types/pagination";
-import { groupSnippetsByDate } from "@/lib/date-groups";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { SnippetCard } from "@/components/snippets/SnippetCard";
+import { SnippetSearchControl } from "@/components/snippets/SnippetSearchControl";
+import { useTheme } from "@/hooks/useTheme";
+import { useAuth } from "@/hooks/useAuth";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { api } from "@/lib/api";
+import { groupSnippetsByDate } from "@/lib/date-groups";
+import {
+  getCommittedSnippetSearchQuery,
+  normalizeSnippetSearchInput,
+} from "@/lib/snippet-search";
+import type { PaginatedResponse } from "@/types/pagination";
+import type { SnippetListItem } from "@/types/snippet";
 
 const PAGE_SIZE = 25;
+const SEARCH_DEBOUNCE_MS = 250;
 
-export function Home() {
+interface HomeProps {
+  initialQuery?: string;
+}
+
+function getNewLinkStyle(): CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
+    padding: "8px 16px",
+    height: "36px",
+    boxSizing: "border-box",
+    background: "var(--color-accent-dim)",
+    color: "var(--color-accent)",
+    border: "1px solid var(--color-accent)",
+    borderRadius: "8px",
+    fontFamily: "var(--font-sans)",
+    fontSize: "13px",
+    fontWeight: 600,
+    letterSpacing: "-0.01em",
+    textDecoration: "none",
+    transition: "opacity 0.15s",
+    flexShrink: 0,
+  };
+}
+
+export function Home({ initialQuery = "" }: HomeProps) {
   const { user } = useAuth();
   const { resolved } = useTheme();
+  const isMobile = useIsMobile();
+  const navigate = useNavigate();
 
-  // Regular (unpinned) snippets — paginated
+  const routeQuery = getCommittedSnippetSearchQuery(initialQuery);
+  const isSearchMode = Boolean(routeQuery);
+
+  const [rawQuery, setRawQuery] = useState(routeQuery);
+  const [searchOpen, setSearchOpen] = useState(Boolean(routeQuery));
   const [snippets, setSnippets] = useState<SnippetListItem[]>([]);
   const [snippetsLoading, setSnippetsLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-
-  // Pinned snippets — all loaded upfront
   const [pinnedSnippets, setPinnedSnippets] = useState<SnippetListItem[]>([]);
   const [pinnedLoading, setPinnedLoading] = useState(true);
   const [recentlyMoved, setRecentlyMoved] = useState<Set<string>>(new Set());
 
-  const fetchPinnedSnippets = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const data = await api.get<PaginatedResponse<SnippetListItem>>(
-        `/api/snippets?pinned=true&limit=100`,
-        { signal }
-      );
-      setPinnedSnippets(data.items);
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      // Silently fail — pinned section simply won't render
-    } finally {
-      setPinnedLoading(false);
-    }
+  const snippetsRef = useRef<SnippetListItem[]>([]);
+  const listControllerRef = useRef<AbortController | null>(null);
+  const listRequestIdRef = useRef(0);
+  const pinnedControllerRef = useRef<AbortController | null>(null);
+  const pinnedRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    snippetsRef.current = snippets;
+  }, [snippets]);
+
+  const cancelListRequest = useCallback(() => {
+    listControllerRef.current?.abort();
+    listControllerRef.current = null;
   }, []);
 
-  const fetchSnippets = useCallback(async (fetchOffset: number, signal?: AbortSignal) => {
+  const cancelPinnedRequest = useCallback(() => {
+    pinnedControllerRef.current?.abort();
+    pinnedControllerRef.current = null;
+  }, []);
+
+  const fetchListPage = useCallback(async (fetchOffset: number, query: string) => {
+    const requestId = listRequestIdRef.current + 1;
+    listRequestIdRef.current = requestId;
+    cancelListRequest();
+
+    const controller = new AbortController();
+    listControllerRef.current = controller;
+
     setFetchError(null);
-    if (fetchOffset > 0) setLoadingMore(true);
-    try {
-      const data = await api.get<PaginatedResponse<SnippetListItem>>(
-        `/api/snippets?pinned=false&limit=${PAGE_SIZE}&offset=${fetchOffset}`,
-        { signal }
-      );
-      if (fetchOffset === 0) {
-        setSnippets(data.items);
+    if (fetchOffset === 0) {
+      if (snippetsRef.current.length === 0) {
+        setSnippetsLoading(true);
       } else {
-        setSnippets((prev) => [...prev, ...data.items]);
+        setRefreshing(true);
       }
+      setLoadingMore(false);
+    } else {
+      setLoadingMore(true);
+    }
+
+    const params = new URLSearchParams({
+      limit: String(PAGE_SIZE),
+      offset: String(fetchOffset),
+    });
+
+    if (query) {
+      params.set("q", query);
+    } else {
+      params.set("pinned", "false");
+    }
+
+    try {
+      const data = await api.get<PaginatedResponse<SnippetListItem>>(`/api/snippets?${params.toString()}`, {
+        signal: controller.signal,
+      });
+
+      if (requestId !== listRequestIdRef.current) return;
+
+      setSnippets((prev) => (fetchOffset === 0 ? data.items : [...prev, ...data.items]));
       setTotal(data.total);
       setOffset(fetchOffset + data.items.length);
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
+      if (requestId !== listRequestIdRef.current) return;
       setFetchError("Failed to load snippets. Please try again.");
     } finally {
+      if (requestId !== listRequestIdRef.current) return;
       setSnippetsLoading(false);
+      setRefreshing(false);
       setLoadingMore(false);
     }
-  }, []);
+  }, [cancelListRequest]);
+
+  const fetchPinnedSnippets = useCallback(async () => {
+    const requestId = pinnedRequestIdRef.current + 1;
+    pinnedRequestIdRef.current = requestId;
+    cancelPinnedRequest();
+
+    const controller = new AbortController();
+    pinnedControllerRef.current = controller;
+    setPinnedLoading(true);
+
+    try {
+      const data = await api.get<PaginatedResponse<SnippetListItem>>(
+        "/api/snippets?pinned=true&limit=100",
+        { signal: controller.signal }
+      );
+
+      if (requestId !== pinnedRequestIdRef.current) return;
+      setPinnedSnippets(data.items);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      if (requestId !== pinnedRequestIdRef.current) return;
+      setPinnedSnippets([]);
+    } finally {
+      if (requestId !== pinnedRequestIdRef.current) return;
+      setPinnedLoading(false);
+    }
+  }, [cancelPinnedRequest]);
+
+  const reloadCurrentList = useCallback(async () => {
+    if (isSearchMode) {
+      setPinnedSnippets([]);
+      setPinnedLoading(false);
+      await fetchListPage(0, routeQuery);
+      return;
+    }
+
+    fetchPinnedSnippets();
+    await fetchListPage(0, "");
+  }, [fetchListPage, fetchPinnedSnippets, isSearchMode, routeQuery]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    fetchPinnedSnippets(controller.signal);
-    fetchSnippets(0, controller.signal);
-    return () => controller.abort();
-  }, [fetchPinnedSnippets, fetchSnippets]);
+    setRawQuery((prev) => (prev === routeQuery ? prev : routeQuery));
+    if (routeQuery) setSearchOpen(true);
+  }, [routeQuery]);
+
+  useEffect(() => {
+    const normalized = normalizeSnippetSearchInput(rawQuery);
+
+    if (!normalized) {
+      if (routeQuery) {
+        navigate({ to: "/", search: {}, replace: true });
+      }
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      const nextQuery = getCommittedSnippetSearchQuery(normalized);
+      if (nextQuery === routeQuery) return;
+      navigate({ to: "/", search: nextQuery ? { q: nextQuery } : {}, replace: true });
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timeout);
+  }, [navigate, rawQuery, routeQuery]);
+
+  useEffect(() => {
+    setFetchError(null);
+    setLoadingMore(false);
+
+    if (isSearchMode) {
+      cancelPinnedRequest();
+      setPinnedLoading(false);
+      fetchListPage(0, routeQuery);
+      return () => cancelListRequest();
+    }
+
+    fetchPinnedSnippets();
+    fetchListPage(0, "");
+
+    return () => {
+      cancelListRequest();
+      cancelPinnedRequest();
+    };
+  }, [
+    cancelListRequest,
+    cancelPinnedRequest,
+    fetchListPage,
+    fetchPinnedSnippets,
+    isSearchMode,
+    routeQuery,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      cancelListRequest();
+      cancelPinnedRequest();
+    };
+  }, [cancelListRequest, cancelPinnedRequest]);
 
   async function handleDelete(id: string) {
-    const inPinned = pinnedSnippets.some((s) => s.id === id);
+    const inPinned = pinnedSnippets.some((snippet) => snippet.id === id);
+    const inList = snippets.some((snippet) => snippet.id === id);
     const prevPinned = pinnedSnippets;
-    const previous = snippets;
-    const previousTotal = total;
-    const previousOffset = offset;
+    const prevSnippets = snippets;
+    const prevTotal = total;
+    const prevOffset = offset;
 
-    if (inPinned) {
-      setPinnedSnippets((prev) => prev.filter((s) => s.id !== id));
-    } else {
-      setSnippets((prev) => prev.filter((s) => s.id !== id));
-      setTotal((prev) => prev - 1);
-      setOffset((prev) => prev - 1);
+    setPinnedSnippets((prev) => prev.filter((snippet) => snippet.id !== id));
+    setSnippets((prev) => prev.filter((snippet) => snippet.id !== id));
+
+    if (inList) {
+      setTotal((prev) => Math.max(0, prev - 1));
+      setOffset((prev) => Math.max(0, prev - 1));
     }
 
     try {
       await api.delete(`/api/snippets/${id}`);
     } catch {
       setPinnedSnippets(prevPinned);
-      setSnippets(previous);
-      setTotal(previousTotal);
-      setOffset(previousOffset);
-      await fetchSnippets(0);
+      setSnippets(prevSnippets);
+      setTotal(prevTotal);
+      setOffset(prevOffset);
+      await reloadCurrentList();
+      return;
+    }
+
+    if (!isSearchMode && inPinned) {
+      return;
     }
   }
 
   async function handleTogglePin(id: string) {
-    const inPinned = pinnedSnippets.find((s) => s.id === id);
-    const inRegular = snippets.find((s) => s.id === id);
+    const inPinned = pinnedSnippets.find((snippet) => snippet.id === id);
+    const inRegular = snippets.find((snippet) => snippet.id === id);
     const snippet = inPinned ?? inRegular;
     if (!snippet) return;
 
@@ -112,7 +281,7 @@ export function Home() {
     const prevOffset = offset;
 
     setRecentlyMoved((prev) => new Set(prev).add(id));
-    setTimeout(() => {
+    window.setTimeout(() => {
       setRecentlyMoved((prev) => {
         const next = new Set(prev);
         next.delete(id);
@@ -120,10 +289,23 @@ export function Home() {
       });
     }, 500);
 
+    if (isSearchMode) {
+      setSnippets((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, is_pinned: !item.is_pinned } : item))
+      );
+
+      try {
+        await api.patch(`/api/snippets/${id}/pin`);
+        await reloadCurrentList();
+      } catch {
+        setSnippets(prevSnippets);
+      }
+      return;
+    }
+
     if (inPinned) {
-      // Unpinning: move from pinned → regular list
       const unpinned = { ...snippet, is_pinned: false };
-      setPinnedSnippets((prev) => prev.filter((s) => s.id !== id));
+      setPinnedSnippets((prev) => prev.filter((item) => item.id !== id));
       setSnippets((prev) =>
         [unpinned, ...prev].sort(
           (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -132,9 +314,8 @@ export function Home() {
       setTotal((prev) => prev + 1);
       setOffset((prev) => prev + 1);
     } else {
-      // Pinning: move from regular → pinned list
       const pinned = { ...snippet, is_pinned: true };
-      setSnippets((prev) => prev.filter((s) => s.id !== id));
+      setSnippets((prev) => prev.filter((item) => item.id !== id));
       setPinnedSnippets((prev) =>
         [pinned, ...prev].sort(
           (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -158,9 +339,11 @@ export function Home() {
     const prevPinned = pinnedSnippets;
     const prevSnippets = snippets;
     const updater = (list: SnippetListItem[]) =>
-      list.map((s) => (s.id === id ? { ...s, color } : s));
+      list.map((snippet) => (snippet.id === id ? { ...snippet, color } : snippet));
+
     setPinnedSnippets(updater);
     setSnippets(updater);
+
     try {
       await api.patch(`/api/snippets/${id}`, { color: color ?? "none" });
     } catch {
@@ -173,9 +356,13 @@ export function Home() {
     const prevPinned = pinnedSnippets;
     const prevSnippets = snippets;
     const updater = (list: SnippetListItem[]) =>
-      list.map((s) => (s.id === id ? { ...s, is_public: !s.is_public } : s));
+      list.map((snippet) =>
+        snippet.id === id ? { ...snippet, is_public: !snippet.is_public } : snippet
+      );
+
     setPinnedSnippets(updater);
     setSnippets(updater);
+
     try {
       await api.patch(`/api/snippets/${id}/visibility`);
     } catch {
@@ -187,9 +374,9 @@ export function Home() {
   const hasMore = offset < total;
 
   const loadNextPage = useCallback(() => {
-    if (loadingMore || fetchError) return;
-    fetchSnippets(offset);
-  }, [loadingMore, fetchError, offset, fetchSnippets]);
+    if (loadingMore || fetchError || snippetsLoading) return;
+    fetchListPage(offset, routeQuery);
+  }, [fetchError, fetchListPage, loadingMore, offset, routeQuery, snippetsLoading]);
 
   const sentinelRef = useIntersectionObserver({
     onIntersect: loadNextPage,
@@ -197,11 +384,20 @@ export function Home() {
     rootMargin: "200px",
   });
 
-  // Must be before early returns — hooks cannot be called after conditional returns
   const groups = useMemo(() => groupSnippetsByDate(snippets), [snippets]);
+  const showInitialLoading =
+    snippets.length === 0 &&
+    (snippetsLoading || (!isSearchMode && pinnedLoading && pinnedSnippets.length === 0));
+  const showFirstSnippetEmptyState =
+    !isSearchMode &&
+    !snippetsLoading &&
+    !pinnedLoading &&
+    snippets.length === 0 &&
+    pinnedSnippets.length === 0;
+  const showSearchEmptyState = isSearchMode && !snippetsLoading && snippets.length === 0;
+  const newLinkStyle = getNewLinkStyle();
 
-  // Loading state
-  if (snippetsLoading || pinnedLoading) {
+  if (showInitialLoading) {
     return (
       <div
         style={{
@@ -225,8 +421,7 @@ export function Home() {
     );
   }
 
-  // Empty state
-  if (snippets.length === 0 && pinnedSnippets.length === 0) {
+  if (showFirstSnippetEmptyState) {
     return (
       <div
         style={{
@@ -240,7 +435,6 @@ export function Home() {
           overflow: "hidden",
         }}
       >
-        {/* Background glow */}
         <div
           style={{
             position: "absolute",
@@ -258,7 +452,6 @@ export function Home() {
           }}
         />
 
-        {/* Greeting */}
         <p
           className="animate-fade-up"
           style={{
@@ -272,10 +465,11 @@ export function Home() {
           }}
         >
           {"// "}
-          {user?.display_name ? `hey, ${user.display_name.split(" ")[0].toLowerCase()}` : `@${user?.username}`}
+          {user?.display_name
+            ? `hey, ${user.display_name.split(" ")[0].toLowerCase()}`
+            : `@${user?.username}`}
         </p>
 
-        {/* Main headline */}
         <h1
           className="animate-fade-up delay-100"
           style={{
@@ -295,7 +489,6 @@ export function Home() {
           <span style={{ color: "var(--color-accent)" }}>first snippet?</span>
         </h1>
 
-        {/* Subtext */}
         <p
           className="animate-fade-up delay-200"
           style={{
@@ -312,25 +505,16 @@ export function Home() {
           Snippets, patterns, commands — all searchable, all yours.
         </p>
 
-        {/* CTA */}
         <div className="animate-fade-up delay-300">
           <Link
             to="/snippets/new"
             style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "8px",
+              ...newLinkStyle,
               padding: "12px 24px",
-              background: "var(--color-accent-dim)",
-              color: "var(--color-accent)",
-              border: "1px solid var(--color-accent)",
+              height: "auto",
               borderRadius: "10px",
-              fontWeight: 600,
               fontSize: "14px",
-              letterSpacing: "-0.01em",
-              textDecoration: "none",
-              fontFamily: "var(--font-sans)",
-              transition: "opacity 0.15s",
+              gap: "8px",
             }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLAnchorElement).style.opacity = "0.85";
@@ -344,7 +528,6 @@ export function Home() {
           </Link>
         </div>
 
-        {/* Decorative code snippet preview */}
         <div
           className="animate-fade-up delay-400"
           style={{
@@ -358,7 +541,6 @@ export function Home() {
             opacity: 0.6,
           }}
         >
-          {/* Window chrome */}
           <div
             style={{
               display: "flex",
@@ -369,9 +551,30 @@ export function Home() {
               background: "var(--color-surface-2)",
             }}
           >
-            <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "var(--color-border)" }} />
-            <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "var(--color-border)" }} />
-            <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: "var(--color-border)" }} />
+            <span
+              style={{
+                width: "10px",
+                height: "10px",
+                borderRadius: "50%",
+                background: "var(--color-border)",
+              }}
+            />
+            <span
+              style={{
+                width: "10px",
+                height: "10px",
+                borderRadius: "50%",
+                background: "var(--color-border)",
+              }}
+            />
+            <span
+              style={{
+                width: "10px",
+                height: "10px",
+                borderRadius: "50%",
+                background: "var(--color-border)",
+              }}
+            />
             <span
               style={{
                 marginLeft: "8px",
@@ -384,7 +587,6 @@ export function Home() {
             </span>
           </div>
 
-          {/* Code */}
           <pre
             style={{
               margin: 0,
@@ -396,7 +598,9 @@ export function Home() {
               overflow: "hidden",
             }}
           >
-            <span style={{ color: "var(--color-text-muted)", opacity: 0.5 }}>{"// waiting for you...\n"}</span>
+            <span style={{ color: "var(--color-text-muted)", opacity: 0.5 }}>
+              {"// waiting for you...\n"}
+            </span>
             <span style={{ color: "var(--color-accent)" }}>{"const "}</span>
             <span style={{ color: "var(--color-text)" }}>{"snippet"}</span>
             <span style={{ color: "var(--color-text-muted)" }}>{" = {"}</span>
@@ -412,7 +616,6 @@ export function Home() {
     );
   }
 
-  // Populated state
   return (
     <div
       style={{
@@ -426,7 +629,6 @@ export function Home() {
         boxSizing: "border-box",
       }}
     >
-      {/* Background glow */}
       <div
         style={{
           position: "fixed",
@@ -445,158 +647,311 @@ export function Home() {
         }}
       />
 
-      {/* Header */}
       <div
         style={{
           display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
+          flexDirection: "column",
+          gap: isMobile && searchOpen ? "14px" : "0",
           marginBottom: "36px",
           position: "relative",
           zIndex: 1,
         }}
       >
-        <div>
-          <p
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: "11px",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              color: "var(--color-accent)",
-              margin: "0 0 4px 0",
-              opacity: 0.8,
-            }}
-          >
-            {"// "}
-            {user?.display_name ? user.display_name.split(" ")[0].toLowerCase() : user?.username}
-          </p>
-          <h1
-            style={{
-              margin: 0,
-              fontSize: "22px",
-              fontWeight: 600,
-              color: "var(--color-text)",
-              fontFamily: "var(--font-sans)",
-              letterSpacing: "-0.04em",
-            }}
-          >
-            Your Snippets
-          </h1>
-        </div>
-
-        <Link
-          to="/snippets/new"
+        <div
           style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "6px",
-            padding: "8px 16px",
-            background: "var(--color-accent-dim)",
-            color: "var(--color-accent)",
-            border: "1px solid var(--color-accent)",
-            borderRadius: "8px",
-            fontFamily: "var(--font-sans)",
-            fontSize: "13px",
-            fontWeight: 600,
-            letterSpacing: "-0.01em",
-            textDecoration: "none",
-            transition: "opacity 0.15s",
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLAnchorElement).style.opacity = "0.8";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLAnchorElement).style.opacity = "1";
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: "20px",
           }}
         >
-          <span style={{ fontSize: "15px" }}>+</span>
-          New Snippet
-        </Link>
+          <div>
+            <p
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "11px",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "var(--color-accent)",
+                margin: "0 0 4px 0",
+                opacity: 0.8,
+              }}
+            >
+              {"// "}
+              {user?.display_name ? user.display_name.split(" ")[0].toLowerCase() : user?.username}
+            </p>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: "22px",
+                fontWeight: 600,
+                color: "var(--color-text)",
+                fontFamily: "var(--font-sans)",
+                letterSpacing: "-0.04em",
+              }}
+            >
+              Your Snippets
+            </h1>
+          <p
+            style={{
+              margin: "6px 0 0 0",
+              height: "14px",
+              fontFamily: "var(--font-mono)",
+              fontSize: "11px",
+              letterSpacing: "0.06em",
+              color: "var(--color-text-muted)",
+              opacity: refreshing ? 0.7 : 0,
+              transition: "opacity 0.15s ease",
+            }}
+            aria-hidden={!refreshing}
+          >
+            searching...
+          </p>
+        </div>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              gap: "10px",
+              flexShrink: 0,
+            }}
+          >
+            <SnippetSearchControl
+              isMobile={isMobile}
+              open={searchOpen}
+              value={rawQuery}
+              onChange={setRawQuery}
+              onOpen={() => setSearchOpen(true)}
+              onClose={() => setSearchOpen(false)}
+              onClear={() => {
+                setRawQuery("");
+                navigate({ to: "/", search: {}, replace: true });
+              }}
+              onCommitNow={() => {
+                const nextQuery = getCommittedSnippetSearchQuery(rawQuery);
+                navigate({ to: "/", search: nextQuery ? { q: nextQuery } : {}, replace: true });
+              }}
+              showInput={!isMobile}
+            />
+
+            <Link
+              to="/snippets/new"
+              style={newLinkStyle}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.opacity = "0.8";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.opacity = "1";
+              }}
+            >
+              <span style={{ fontSize: "15px" }}>+</span>
+              New
+            </Link>
+          </div>
+        </div>
+
+        {isMobile && searchOpen && (
+          <div style={{ width: "100%" }}>
+            <SnippetSearchControl
+              isMobile
+              open
+              value={rawQuery}
+              onChange={setRawQuery}
+              onOpen={() => setSearchOpen(true)}
+              onClose={() => setSearchOpen(false)}
+              onClear={() => {
+                setRawQuery("");
+                navigate({ to: "/", search: {}, replace: true });
+              }}
+              onCommitNow={() => {
+                const nextQuery = getCommittedSnippetSearchQuery(rawQuery);
+                navigate({ to: "/", search: nextQuery ? { q: nextQuery } : {}, replace: true });
+              }}
+              showTrigger={false}
+            />
+          </div>
+        )}
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "36px", position: "relative", zIndex: 1 }}>
-
-        {/* Pinned section */}
-        {pinnedSnippets.length > 0 && (
-          <section>
-            <div
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "36px",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        {showSearchEmptyState ? (
+          <section
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "16px",
+              padding: "32px 0 12px",
+            }}
+          >
+            <p
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-                gap: "12px",
+                margin: 0,
+                fontSize: "15px",
+                color: "var(--color-text-muted)",
+                textAlign: "center",
               }}
             >
-              {pinnedSnippets.map((snippet) => (
-                <SnippetCard
-                  key={snippet.id}
-                  snippet={snippet}
-                  onDelete={handleDelete}
-                  onTogglePin={handleTogglePin}
-                  onColorChange={handleColorChange}
-                  onToggleVisibility={handleToggleVisibility}
-                  animateEntrance={recentlyMoved.has(snippet.id)}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Date-grouped sections */}
-        {groups.map((group) => (
-          <section key={group.label}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                marginBottom: "14px",
-              }}
-            >
-              <span
+              No snippets match “{routeQuery}”.
+            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", justifyContent: "center" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setRawQuery("");
+                  navigate({ to: "/", search: {}, replace: true });
+                }}
                 style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "11px",
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  color: "var(--color-text-muted)",
-                  opacity: 0.6,
-                  flexShrink: 0,
+                  padding: "8px 16px",
+                  background: "transparent",
+                  color: "var(--color-accent)",
+                  border: "1px solid var(--color-accent)",
+                  borderRadius: "8px",
+                  fontFamily: "var(--font-sans)",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  cursor: "pointer",
                 }}
               >
-                {group.label}
-              </span>
-              <div
-                style={{
-                  flex: 1,
-                  height: "1px",
-                  background: "var(--color-border)",
-                  opacity: 0.5,
+                Clear search
+              </button>
+              <Link
+                to="/snippets/new"
+                style={newLinkStyle}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLAnchorElement).style.opacity = "0.8";
                 }}
-              />
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-                gap: "12px",
-              }}
-            >
-              {group.snippets.map((snippet) => (
-                <SnippetCard key={snippet.id} snippet={snippet} onDelete={handleDelete} onTogglePin={handleTogglePin} onColorChange={handleColorChange} onToggleVisibility={handleToggleVisibility} animateEntrance={recentlyMoved.has(snippet.id)} />
-              ))}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLAnchorElement).style.opacity = "1";
+                }}
+              >
+                <span style={{ fontSize: "15px" }}>+</span>
+                New
+              </Link>
             </div>
           </section>
-        ))}
+        ) : (
+          <>
+            {!isSearchMode && pinnedSnippets.length > 0 && (
+              <section>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                    gap: "12px",
+                  }}
+                >
+                  {pinnedSnippets.map((snippet) => (
+                    <SnippetCard
+                      key={snippet.id}
+                      snippet={snippet}
+                      onDelete={handleDelete}
+                      onTogglePin={handleTogglePin}
+                      onColorChange={handleColorChange}
+                      onToggleVisibility={handleToggleVisibility}
+                      animateEntrance={recentlyMoved.has(snippet.id)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {isSearchMode ? (
+              <section>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                    gap: "12px",
+                  }}
+                >
+                  {snippets.map((snippet) => (
+                    <SnippetCard
+                      key={snippet.id}
+                      snippet={snippet}
+                      onDelete={handleDelete}
+                      onTogglePin={handleTogglePin}
+                      onColorChange={handleColorChange}
+                      onToggleVisibility={handleToggleVisibility}
+                      animateEntrance={recentlyMoved.has(snippet.id)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : (
+              groups.map((group) => (
+                <section key={group.label}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      marginBottom: "14px",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: "11px",
+                        letterSpacing: "0.1em",
+                        textTransform: "uppercase",
+                        color: "var(--color-text-muted)",
+                        opacity: 0.6,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {group.label}
+                    </span>
+                    <div
+                      style={{
+                        flex: 1,
+                        height: "1px",
+                        background: "var(--color-border)",
+                        opacity: 0.5,
+                      }}
+                    />
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                      gap: "12px",
+                    }}
+                  >
+                    {group.snippets.map((snippet) => (
+                      <SnippetCard
+                        key={snippet.id}
+                        snippet={snippet}
+                        onDelete={handleDelete}
+                        onTogglePin={handleTogglePin}
+                        onColorChange={handleColorChange}
+                        onToggleVisibility={handleToggleVisibility}
+                        animateEntrance={recentlyMoved.has(snippet.id)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))
+            )}
+          </>
+        )}
       </div>
 
-      {/* Sentinel for infinite scroll — invisible trigger element */}
-      {hasMore && !fetchError && (
+      {hasMore && !fetchError && !showSearchEmptyState && (
         <div ref={sentinelRef} style={{ height: "1px", width: "100%" }} aria-hidden="true" />
       )}
 
-      {/* Loading spinner for next page */}
       {loadingMore && (
         <div style={{ display: "flex", justifyContent: "center", padding: "24px 0" }}>
           <div
@@ -612,7 +967,6 @@ export function Home() {
         </div>
       )}
 
-      {/* Error with retry */}
       {fetchError && (
         <div
           style={{
@@ -634,9 +988,10 @@ export function Home() {
             {fetchError}
           </p>
           <button
+            type="button"
             onClick={() => {
               setFetchError(null);
-              fetchSnippets(offset);
+              fetchListPage(offset, routeQuery);
             }}
             style={{
               padding: "8px 16px",
@@ -662,8 +1017,7 @@ export function Home() {
         </div>
       )}
 
-      {/* End of list */}
-      {!hasMore && snippets.length > 0 && (
+      {!hasMore && snippets.length > 0 && !showSearchEmptyState && (
         <div
           style={{
             display: "flex",
@@ -673,7 +1027,15 @@ export function Home() {
             padding: "32px 0 16px",
           }}
         >
-          <div style={{ flex: 1, maxWidth: "80px", height: "1px", background: "var(--color-border)", opacity: 0.5 }} />
+          <div
+            style={{
+              flex: 1,
+              maxWidth: "80px",
+              height: "1px",
+              background: "var(--color-border)",
+              opacity: 0.5,
+            }}
+          />
           <span
             style={{
               fontFamily: "var(--font-mono)",
@@ -685,7 +1047,15 @@ export function Home() {
           >
             end
           </span>
-          <div style={{ flex: 1, maxWidth: "80px", height: "1px", background: "var(--color-border)", opacity: 0.5 }} />
+          <div
+            style={{
+              flex: 1,
+              maxWidth: "80px",
+              height: "1px",
+              background: "var(--color-border)",
+              opacity: 0.5,
+            }}
+          />
         </div>
       )}
     </div>
