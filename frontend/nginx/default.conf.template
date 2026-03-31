@@ -34,7 +34,7 @@ server {
     # Public short links — proxy to backend for LLM agents requesting markdown
     location /s/ {
         if ($markdown_agent) {
-            proxy_pass http://backend:8000;
+            proxy_pass ${BACKEND_URL};
         }
         try_files $uri $uri/ /index.html;
     }
