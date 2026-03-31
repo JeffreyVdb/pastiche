@@ -188,7 +188,10 @@ export function Home({ initialQuery = "" }: HomeProps) {
   }, [fetchListPage, fetchPinnedSnippets, isSearchMode, routeQuery]);
 
   useEffect(() => {
-    setRawQuery((prev) => (prev === routeQuery ? prev : routeQuery));
+    setRawQuery((prev) => {
+      if (normalizeSnippetSearchInput(prev) === routeQuery) return prev;
+      return routeQuery;
+    });
     if (routeQuery) setSearchOpen(true);
   }, [routeQuery]);
 
@@ -409,6 +412,7 @@ export function Home({ initialQuery = "" }: HomeProps) {
   const groups = useMemo(() => groupSnippetsByDate(snippets), [snippets]);
   const showInitialLoading =
     snippets.length === 0 &&
+    !searchOpen &&
     (snippetsLoading || (!isSearchMode && pinnedLoading && pinnedSnippets.length === 0));
   const showFirstSnippetEmptyState =
     !isSearchMode &&

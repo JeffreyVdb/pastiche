@@ -15,7 +15,9 @@ export default defineConfig({
       "@": resolve(__dirname, "./src"),
     },
   },
+  envDir: resolve(__dirname, ".."),
   server: {
+    allowedHosts: true,
     proxy: {
       "/api": { target: process.env.VITE_API_TARGET ?? "http://localhost:8000", changeOrigin: true },
 },
