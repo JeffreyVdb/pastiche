@@ -1,3 +1,8 @@
+map $http_accept $markdown_agent {
+    default 0;
+    ~text/markdown 1;
+}
+
 server {
     listen ${PORT};
     listen [::]:${PORT} ipv6only=on;
@@ -24,6 +29,14 @@ server {
     location /assets/ {
         add_header Cache-Control "public, max-age=31536000, immutable";
         try_files $uri =404;
+    }
+
+    # Public short links — proxy to backend for LLM agents requesting markdown
+    location /s/ {
+        if ($markdown_agent) {
+            proxy_pass http://backend:8000;
+        }
+        try_files $uri $uri/ /index.html;
     }
 
     # SPA fallback for client-side routes
