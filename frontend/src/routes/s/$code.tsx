@@ -1,28 +1,32 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { ViewSnippet } from "@/pages/ViewSnippet";
+import { parseSnippetDetailView } from "@/lib/snippet-detail-view";
 
 export const Route = createFileRoute("/s/$code")({
-  component: ShortCodeRedirect,
+  validateSearch: (search: Record<string, unknown>) => {
+    const view = parseSnippetDetailView(search.view);
+    return view ? { view } : {};
+  },
+  component: ShortCodePage,
 });
 
-function ShortCodeRedirect() {
+function ShortCodePage() {
   const { code } = Route.useParams();
-  const navigate = useNavigate();
+  const { view } = Route.useSearch();
+  const { user, loading: authLoading } = useAuth();
+  const [snippetId, setSnippetId] = useState<string | null>(null);
   const [error, setError] = useState(false);
 
   useEffect(() => {
     api
       .get<{ snippet_id: string }>(`/api/snippets/resolve/${code}`)
-      .then((data) => {
-        navigate({
-          to: "/snippets/$snippetId",
-          params: { snippetId: data.snippet_id },
-          replace: true,
-        });
-      })
+      .then((data) => setSnippetId(data.snippet_id))
       .catch(() => setError(true));
-  }, [code, navigate]);
+  }, [code]);
 
   if (error) {
     return (
@@ -33,9 +37,21 @@ function ShortCodeRedirect() {
     );
   }
 
-  return (
-    <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--color-bg)" }}>
-      <div style={{ width: "20px", height: "20px", border: "2px solid var(--color-border)", borderTopColor: "var(--color-accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-    </div>
-  );
+  if (authLoading || !snippetId) {
+    return (
+      <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--color-bg)" }}>
+        <div style={{ width: "20px", height: "20px", border: "2px solid var(--color-border)", borderTopColor: "var(--color-accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+      </div>
+    );
+  }
+
+  if (user) {
+    return (
+      <AppLayout>
+        <ViewSnippet snippetId={snippetId} requestedView={view} />
+      </AppLayout>
+    );
+  }
+
+  return <ViewSnippet snippetId={snippetId} requestedView={view} />;
 }

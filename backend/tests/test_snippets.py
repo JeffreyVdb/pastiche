@@ -8,7 +8,9 @@ from app.models.user import User
 _snippet_counter = 0
 
 
-async def _create_user(session, *, github_id: int = 1, username: str = "testuser") -> User:
+async def _create_user(
+    session, *, github_id: int = 1, username: str = "testuser"
+) -> User:
     user = User(
         github_id=github_id,
         username=username,
@@ -22,7 +24,9 @@ async def _create_user(session, *, github_id: int = 1, username: str = "testuser
     return user
 
 
-async def _create_snippet(session, *, user_id, title: str = "My snippet", content: str = "hello") -> Snippet:
+async def _create_snippet(
+    session, *, user_id, title: str = "My snippet", content: str = "hello"
+) -> Snippet:
     global _snippet_counter
     _snippet_counter += 1
     snippet = Snippet(
@@ -164,7 +168,9 @@ async def test_list_invalid_order_returns_422(client, test_session):
 async def test_get_snippet_returns_content(client, test_session):
     user = await _create_user(test_session)
     _auth(client, user)
-    snippet = await _create_snippet(test_session, user_id=user.id, content="full content here")
+    snippet = await _create_snippet(
+        test_session, user_id=user.id, content="full content here"
+    )
 
     response = client.get(f"/api/snippets/{snippet.id}")
     assert response.status_code == 200
@@ -262,7 +268,9 @@ async def test_list_pagination_with_sort(client, test_session):
     assert page1["items"][0]["id"] == str(s1.id)
     assert page1["total"] == 3
 
-    page2 = client.get("/api/snippets?limit=1&offset=1&sort_by=created_at&order=asc").json()
+    page2 = client.get(
+        "/api/snippets?limit=1&offset=1&sort_by=created_at&order=asc"
+    ).json()
     assert page2["items"][0]["id"] == str(s2.id)
 
 
@@ -274,8 +282,15 @@ async def test_list_pagination_with_sort(client, test_session):
 async def test_list_search_matches_title(client, test_session):
     user = await _create_user(test_session, github_id=16, username="u_search_title")
     _auth(client, user)
-    title_match = await _create_snippet(test_session, user_id=user.id, title="Debounce hook", content="alpha")
-    await _create_snippet(test_session, user_id=user.id, title="Clipboard helper", content="debounce lives here")
+    title_match = await _create_snippet(
+        test_session, user_id=user.id, title="Debounce hook", content="alpha"
+    )
+    await _create_snippet(
+        test_session,
+        user_id=user.id,
+        title="Clipboard helper",
+        content="debounce lives here",
+    )
 
     response = client.get("/api/snippets?q=debounce%20hook")
     assert response.status_code == 200
@@ -293,7 +308,9 @@ async def test_list_search_matches_content(client, test_session):
         title="Clipboard helper",
         content="This snippet uses a stable debounce timer.",
     )
-    await _create_snippet(test_session, user_id=user.id, title="Another entry", content="Nothing relevant")
+    await _create_snippet(
+        test_session, user_id=user.id, title="Another entry", content="Nothing relevant"
+    )
 
     response = client.get("/api/snippets?q=stable%20debounce")
     assert response.status_code == 200
@@ -305,7 +322,9 @@ async def test_list_search_matches_content(client, test_session):
 async def test_list_search_ranks_title_matches_above_content_only(client, test_session):
     user = await _create_user(test_session, github_id=18, username="u_search_rank")
     _auth(client, user)
-    title_match = await _create_snippet(test_session, user_id=user.id, title="Debounce hook", content="plain body")
+    title_match = await _create_snippet(
+        test_session, user_id=user.id, title="Debounce hook", content="plain body"
+    )
     content_match = await _create_snippet(
         test_session,
         user_id=user.id,
@@ -322,7 +341,9 @@ async def test_list_search_ranks_title_matches_above_content_only(client, test_s
 async def test_list_search_is_case_insensitive(client, test_session):
     user = await _create_user(test_session, github_id=19, username="u_search_case")
     _auth(client, user)
-    snippet = await _create_snippet(test_session, user_id=user.id, title="JWT middleware", content="Bearer token")
+    snippet = await _create_snippet(
+        test_session, user_id=user.id, title="JWT middleware", content="Bearer token"
+    )
 
     response = client.get("/api/snippets?q=jwt")
     assert response.status_code == 200
@@ -338,7 +359,9 @@ async def test_list_search_splits_multi_word_queries(client, test_session):
         title="Cache helper",
         content="Refresh token cache invalidation example",
     )
-    await _create_snippet(test_session, user_id=user.id, title="Refresh only", content="cache only")
+    await _create_snippet(
+        test_session, user_id=user.id, title="Refresh only", content="cache only"
+    )
 
     response = client.get("/api/snippets?q=%20%20refresh%20%20token%20")
     assert response.status_code == 200
@@ -350,9 +373,15 @@ async def test_list_search_splits_multi_word_queries(client, test_session):
 async def test_list_search_paginates_results(client, test_session):
     user = await _create_user(test_session, github_id=22, username="u_search_page")
     _auth(client, user)
-    first = await _create_snippet(test_session, user_id=user.id, title="alpha snippet", content="match alpha")
-    second = await _create_snippet(test_session, user_id=user.id, title="beta snippet", content="match alpha")
-    third = await _create_snippet(test_session, user_id=user.id, title="gamma snippet", content="match alpha")
+    first = await _create_snippet(
+        test_session, user_id=user.id, title="alpha snippet", content="match alpha"
+    )
+    second = await _create_snippet(
+        test_session, user_id=user.id, title="beta snippet", content="match alpha"
+    )
+    third = await _create_snippet(
+        test_session, user_id=user.id, title="gamma snippet", content="match alpha"
+    )
 
     page1 = client.get("/api/snippets?q=alpha&limit=2&offset=0").json()
     page2 = client.get("/api/snippets?q=alpha&limit=2&offset=2").json()
@@ -367,8 +396,12 @@ async def test_list_search_paginates_results(client, test_session):
 async def test_list_search_respects_pinned_filter(client, test_session):
     user = await _create_user(test_session, github_id=23, username="u_search_pin")
     _auth(client, user)
-    pinned = await _create_snippet(test_session, user_id=user.id, title="Debounce hook", content="alpha")
-    unpinned = await _create_snippet(test_session, user_id=user.id, title="Debounce util", content="alpha")
+    pinned = await _create_snippet(
+        test_session, user_id=user.id, title="Debounce hook", content="alpha"
+    )
+    unpinned = await _create_snippet(
+        test_session, user_id=user.id, title="Debounce util", content="alpha"
+    )
 
     client.patch(f"/api/snippets/{pinned.id}/pin")
 
@@ -387,7 +420,9 @@ async def test_list_search_respects_pinned_filter(client, test_session):
 async def test_create_snippet_has_short_code(client, test_session):
     user = await _create_user(test_session, github_id=20, username="u_sc_create")
     _auth(client, user)
-    response = client.post("/api/snippets", json={"title": "sc test", "content": "hello"})
+    response = client.post(
+        "/api/snippets", json={"title": "sc test", "content": "hello"}
+    )
     assert response.status_code == 201
     data = response.json()
     assert "short_code" in data
@@ -400,7 +435,9 @@ async def test_short_codes_are_unique(client, test_session):
     _auth(client, user)
     codes = set()
     for i in range(5):
-        response = client.post("/api/snippets", json={"title": f"sc{i}", "content": f"content{i}"})
+        response = client.post(
+            "/api/snippets", json={"title": f"sc{i}", "content": f"content{i}"}
+        )
         assert response.status_code == 201
         codes.add(response.json()["short_code"])
     assert len(codes) == 5
@@ -409,7 +446,9 @@ async def test_short_codes_are_unique(client, test_session):
 async def test_short_code_not_in_update(client, test_session):
     user = await _create_user(test_session, github_id=22, username="u_sc_update")
     _auth(client, user)
-    create_resp = client.post("/api/snippets", json={"title": "original", "content": "body"})
+    create_resp = client.post(
+        "/api/snippets", json={"title": "original", "content": "body"}
+    )
     assert create_resp.status_code == 201
     snippet_id = create_resp.json()["id"]
     original_code = create_resp.json()["short_code"]
@@ -422,7 +461,9 @@ async def test_short_code_not_in_update(client, test_session):
 async def test_resolve_short_code_authenticated(client, test_session):
     user = await _create_user(test_session, github_id=23, username="u_sc_resolve")
     _auth(client, user)
-    create_resp = client.post("/api/snippets", json={"title": "resolve me", "content": "data"})
+    create_resp = client.post(
+        "/api/snippets", json={"title": "resolve me", "content": "data"}
+    )
     assert create_resp.status_code == 201
     snippet_id = create_resp.json()["id"]
     short_code = create_resp.json()["short_code"]
@@ -435,13 +476,44 @@ async def test_resolve_short_code_authenticated(client, test_session):
 async def test_resolve_short_code_unauthenticated(client, test_session):
     user = await _create_user(test_session, github_id=24, username="u_sc_noauth")
     _auth(client, user)
-    create_resp = client.post("/api/snippets", json={"title": "public resolve", "content": "data"})
+    create_resp = client.post(
+        "/api/snippets", json={"title": "public resolve", "content": "data"}
+    )
     assert create_resp.status_code == 201
     snippet_id = create_resp.json()["id"]
     short_code = create_resp.json()["short_code"]
 
-    # Clear auth cookies to simulate unauthenticated request
+    client.patch(f"/api/snippets/{snippet_id}/visibility")
     client.cookies.clear()
+    resolve_resp = client.get(f"/api/snippets/resolve/{short_code}")
+    assert resolve_resp.status_code == 200
+    assert resolve_resp.json()["snippet_id"] == snippet_id
+
+
+async def test_resolve_short_code_private_unauthenticated(client, test_session):
+    user = await _create_user(test_session, github_id=26, username="u_sc_private")
+    _auth(client, user)
+    create_resp = client.post(
+        "/api/snippets", json={"title": "private resolve", "content": "data"}
+    )
+    assert create_resp.status_code == 201
+    short_code = create_resp.json()["short_code"]
+
+    client.cookies.clear()
+    resolve_resp = client.get(f"/api/snippets/resolve/{short_code}")
+    assert resolve_resp.status_code == 404
+
+
+async def test_resolve_short_code_private_as_owner(client, test_session):
+    user = await _create_user(test_session, github_id=27, username="u_sc_owner")
+    _auth(client, user)
+    create_resp = client.post(
+        "/api/snippets", json={"title": "private owner", "content": "data"}
+    )
+    assert create_resp.status_code == 201
+    snippet_id = create_resp.json()["id"]
+    short_code = create_resp.json()["short_code"]
+
     resolve_resp = client.get(f"/api/snippets/resolve/{short_code}")
     assert resolve_resp.status_code == 200
     assert resolve_resp.json()["snippet_id"] == snippet_id
