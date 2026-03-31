@@ -21,6 +21,6 @@ COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
 # Default to a non-privileged port for host networking; override with `-e PORT=...`.
 ENV PORT=8080
 ENV BACKEND_URL=http://backend:8000
-ENV NGINX_ENVSUBST_FILTER=PORT BACKEND_URL
+ENV NGINX_ENVSUBST_FILTER="PORT BACKEND_URL"
 
 EXPOSE 8080
