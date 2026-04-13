@@ -16,6 +16,9 @@
 .env.local
 .env.*.local
 
+# Local Pastiche CLI config
+.pastiche/
+
 # Python
 __pycache__/
 *.py[cod]

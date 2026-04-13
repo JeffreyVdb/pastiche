@@ -1,0 +1,1 @@
+Pastiche CLI — manage code snippets and API keys from the terminal via the Pastiche REST API.
