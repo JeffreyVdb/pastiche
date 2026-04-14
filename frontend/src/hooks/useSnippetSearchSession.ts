@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  getCommittedSnippetSearchQuery,
-  normalizeSnippetSearchInput,
-} from "@/lib/snippet-search";
+import { normalizeSnippetSearchInput } from "@/lib/snippet-search";
 
 export const SEARCH_DEBOUNCE_MS = 250;
 
@@ -37,8 +34,7 @@ export function useSnippetSearchSession({ routeQuery, navigate }: UseSnippetSear
     }
 
     const timeout = window.setTimeout(() => {
-      const nextQuery = getCommittedSnippetSearchQuery(normalized);
-      setSearchQuery(nextQuery);
+      setSearchQuery(normalized);
     }, SEARCH_DEBOUNCE_MS);
 
     return () => window.clearTimeout(timeout);
@@ -62,8 +58,7 @@ export function useSnippetSearchSession({ routeQuery, navigate }: UseSnippetSear
   }, [navigate]);
 
   const commitSearchNow = useCallback(() => {
-    const nextQuery = getCommittedSnippetSearchQuery(rawQuery);
-    setSearchQuery(nextQuery);
+    setSearchQuery(normalizeSnippetSearchInput(rawQuery));
   }, [rawQuery]);
 
   return {

@@ -48,6 +48,8 @@ async def list_mine(
     sort_by: SnippetSortField = Query(default=SnippetSortField.created_at),
     order: Literal["asc", "desc"] = Query(default="desc"),
     q: str | None = Query(default=None),
+    labels: list[str] = Query(default=[]),
+    exclude_labels: list[str] = Query(default=[]),
     limit: PaginationLimit = 50,
     offset: PaginationOffset = 0,
     pinned: bool | None = Query(default=None),
@@ -61,6 +63,8 @@ async def list_mine(
         offset=offset,
         pinned=pinned,
         q=q,
+        labels=labels,
+        exclude_labels=exclude_labels,
     )
     return PaginatedResponse(
         items=[SnippetListRead.model_validate(r) for r in rows],

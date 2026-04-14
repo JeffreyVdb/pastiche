@@ -245,3 +245,131 @@ def test_handle_errors_converts_httpx_failures_to_click_exceptions():
 
     with pytest.raises(click.ClickException, match="Network error"):
         boom()
+
+
+@pytest.mark.asyncio
+async def test_client_supports_label_endpoints_and_snippet_filters():
+    from cli_anything.pastiche.core.client import PasticheClient
+    from cli_anything.pastiche.core.config import PasticheConfig
+
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"ok": True})
+
+    transport = httpx.MockTransport(handler)
+    async with PasticheClient(
+        PasticheConfig(url="https://pastiche.example", api_key="secret"),
+        transport=transport,
+    ) as client:
+        await client.list_labels()
+        await client.create_label("Frontend")
+        await client.update_label("label-1", name="UI", color="#123abc")
+        await client.attach_label("label-1", "snippet-1")
+        await client.detach_label("label-1", "snippet-1")
+        await client.delete_label("label-1")
+        await client.list_snippets(
+            q="debounce #frontend !#bug",
+            labels=["frontend", "ui"],
+            exclude_labels=["bug"],
+        )
+
+    assert requests[0].url == httpx.URL("https://pastiche.example/api/labels")
+    assert requests[1].method == "POST"
+    assert requests[1].content.decode() == '{"name":"Frontend"}'
+    assert requests[2].method == "PATCH"
+    assert requests[2].url == httpx.URL("https://pastiche.example/api/labels/label-1")
+    assert requests[3].method == "PUT"
+    assert requests[3].url == httpx.URL("https://pastiche.example/api/labels/label-1/snippets/snippet-1")
+    assert requests[4].method == "DELETE"
+    assert requests[4].url == httpx.URL("https://pastiche.example/api/labels/label-1/snippets/snippet-1")
+    assert requests[5].method == "DELETE"
+    assert requests[5].url == httpx.URL("https://pastiche.example/api/labels/label-1")
+    assert requests[6].url.params.get_list("labels") == ["frontend", "ui"]
+    assert requests[6].url.params.get_list("exclude_labels") == ["bug"]
+
+
+def test_snippets_commands_forward_label_flags(monkeypatch: pytest.MonkeyPatch):
+    from cli_anything.pastiche.commands.snippets import snippets
+
+    class DummyClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def create_snippet(self, **kwargs):
+            calls.append(("create", kwargs))
+            return {"id": "snippet-1", **kwargs, "short_code": "abc", "is_pinned": False, "is_public": False, "color": None, "created_at": "now", "updated_at": "now"}
+
+        async def update_snippet(self, snippet_id, **kwargs):
+            calls.append(("update", snippet_id, kwargs))
+            return {"id": snippet_id, "title": kwargs.get("title") or "Old", "language": kwargs.get("language") or "python", "content": kwargs.get("content") or "print(1)", "short_code": "abc", "is_pinned": False, "is_public": False, "color": kwargs.get("color"), "created_at": "now", "updated_at": "now"}
+
+    calls: list[tuple] = []
+
+    monkeypatch.setattr("cli_anything.pastiche.commands.snippets.with_client", lambda ctx: DummyClient())
+
+    runner = CliRunner()
+    result = runner.invoke(
+        snippets,
+        ["create", "--title", "Example", "--content", "print(1)", "--labels", "frontend, urgent"],
+        obj={"json": True, "config": {"url": "https://example.com", "api_key": "***"}},
+    )
+    assert result.exit_code == 0
+
+    result = runner.invoke(
+        snippets,
+        ["update", "snippet-1", "--labels", "frontend", "--title", "Updated"],
+        obj={"json": True, "config": {"url": "https://example.com", "api_key": "***"}},
+    )
+    assert result.exit_code == 0
+
+    assert calls[0] == (
+        "create",
+        {"title": "Example", "language": "autodetect", "content": "print(1)", "labels": ["frontend", "urgent"]},
+    )
+    assert calls[1] == (
+        "update",
+        "snippet-1",
+        {"title": "Updated", "language": None, "content": None, "color": None, "labels": ["frontend"]},
+    )
+
+
+def test_labels_commands_call_client(monkeypatch: pytest.MonkeyPatch):
+    from cli_anything.pastiche.commands.labels import labels
+
+    class DummyClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def list_labels(self):
+            calls.append(("list",))
+            return [{"id": "label-1", "name": "Frontend", "color": "#123abc"}]
+
+        async def create_label(self, name):
+            calls.append(("create", name))
+            return {"id": "label-1", "name": name, "color": "#123abc"}
+
+        async def delete_label(self, label_id):
+            calls.append(("delete", label_id))
+            return None
+
+    calls: list[tuple] = []
+    monkeypatch.setattr("cli_anything.pastiche.commands.labels.with_client", lambda ctx: DummyClient())
+
+    runner = CliRunner()
+    for args in (["list"], ["create", "Frontend"], ["delete", "label-1", "--force"]):
+        result = runner.invoke(
+            labels,
+            args,
+            obj={"json": True, "config": {"url": "https://example.com", "api_key": "***"}},
+        )
+        assert result.exit_code == 0
+
+    assert calls == [("list",), ("create", "Frontend"), ("delete", "label-1")]

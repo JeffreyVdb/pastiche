@@ -9,9 +9,9 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { useSnippetSearchSession } from "@/hooks/useSnippetSearchSession";
 import { api } from "@/lib/api";
 import { groupSnippetsByDate } from "@/lib/date-groups";
-import { getCommittedSnippetSearchQuery } from "@/lib/snippet-search";
+import { getSnippetSearchFilters, normalizeSnippetSearchInput } from "@/lib/snippet-search";
 import type { PaginatedResponse } from "@/types/pagination";
-import type { SnippetListItem } from "@/types/snippet";
+import type { LabelRead, SnippetListItem } from "@/types/snippet";
 
 const PAGE_SIZE = 25;
 
@@ -56,7 +56,7 @@ export function Home({ initialQuery = "" }: HomeProps) {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
 
-  const routeQuery = getCommittedSnippetSearchQuery(initialQuery);
+  const routeQuery = normalizeSnippetSearchInput(initialQuery);
   const {
     rawQuery,
     searchQuery,
@@ -75,6 +75,7 @@ export function Home({ initialQuery = "" }: HomeProps) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [allLabels, setAllLabels] = useState<LabelRead[]>([]);
   const [pinnedSnippets, setPinnedSnippets] = useState<SnippetListItem[]>([]);
   const [pinnedLoading, setPinnedLoading] = useState(true);
   const [recentlyMoved, setRecentlyMoved] = useState<Set<string>>(new Set());
@@ -99,6 +100,22 @@ export function Home({ initialQuery = "" }: HomeProps) {
     pinnedControllerRef.current = null;
   }, []);
 
+  const fetchLabels = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const data = await api.get<LabelRead[]>("/api/labels", { signal });
+      setAllLabels(data);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setAllLabels([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchLabels(controller.signal);
+    return () => controller.abort();
+  }, [fetchLabels]);
+
   const fetchListPage = useCallback(async (fetchOffset: number, query: string) => {
     const requestId = listRequestIdRef.current + 1;
     listRequestIdRef.current = requestId;
@@ -119,15 +136,25 @@ export function Home({ initialQuery = "" }: HomeProps) {
       setLoadingMore(true);
     }
 
+    const { textQuery, includeLabels, excludeLabels } = getSnippetSearchFilters(query);
+
     const params = new URLSearchParams({
       limit: String(PAGE_SIZE),
       offset: String(fetchOffset),
     });
 
-    if (query) {
-      params.set("q", query);
+    if (textQuery) {
+      params.set("q", textQuery);
     } else {
       params.set("pinned", "false");
+    }
+
+    for (const label of includeLabels) {
+      params.append("labels", label);
+    }
+
+    for (const label of excludeLabels) {
+      params.append("exclude_labels", label);
     }
 
     try {
@@ -348,6 +375,42 @@ export function Home({ initialQuery = "" }: HomeProps) {
 
     try {
       await api.patch(`/api/snippets/${id}`, { color: color ?? "none" });
+    } catch {
+      setPinnedSnippets(prevPinned);
+      setSnippets(prevSnippets);
+    }
+  }
+
+  async function handleToggleLabel(id: string, labelId: string) {
+    const label = allLabels.find((item) => item.id === labelId);
+    if (!label) return;
+
+    const hasLabel = [...pinnedSnippets, ...snippets].some(
+      (snippet) => snippet.id === id && snippet.labels.some((item) => item.id === labelId)
+    );
+
+    const updater = (list: SnippetListItem[]) =>
+      list.map((snippet) => {
+        if (snippet.id !== id) return snippet;
+        return {
+          ...snippet,
+          labels: hasLabel
+            ? snippet.labels.filter((item) => item.id !== labelId)
+            : [...snippet.labels, label].sort((a, b) => a.name.localeCompare(b.name)),
+        };
+      });
+
+    const prevPinned = pinnedSnippets;
+    const prevSnippets = snippets;
+    setPinnedSnippets(updater);
+    setSnippets(updater);
+
+    try {
+      if (hasLabel) {
+        await api.delete(`/api/labels/${labelId}/snippets/${id}`);
+      } else {
+        await api.put(`/api/labels/${labelId}/snippets/${id}`);
+      }
     } catch {
       setPinnedSnippets(prevPinned);
       setSnippets(prevSnippets);
@@ -843,10 +906,12 @@ export function Home({ initialQuery = "" }: HomeProps) {
                     <SnippetCard
                       key={snippet.id}
                       snippet={snippet}
+                      allLabels={allLabels}
                       onDelete={handleDelete}
                       onTogglePin={handleTogglePin}
                       onColorChange={handleColorChange}
                       onToggleVisibility={handleToggleVisibility}
+                      onToggleLabel={handleToggleLabel}
                       animateEntrance={recentlyMoved.has(snippet.id)}
                     />
                   ))}
@@ -867,10 +932,12 @@ export function Home({ initialQuery = "" }: HomeProps) {
                     <SnippetCard
                       key={snippet.id}
                       snippet={snippet}
+                      allLabels={allLabels}
                       onDelete={handleDelete}
                       onTogglePin={handleTogglePin}
                       onColorChange={handleColorChange}
                       onToggleVisibility={handleToggleVisibility}
+                      onToggleLabel={handleToggleLabel}
                       animateEntrance={recentlyMoved.has(snippet.id)}
                     />
                   ))}
@@ -921,10 +988,12 @@ export function Home({ initialQuery = "" }: HomeProps) {
                       <SnippetCard
                         key={snippet.id}
                         snippet={snippet}
+                        allLabels={allLabels}
                         onDelete={handleDelete}
                         onTogglePin={handleTogglePin}
                         onColorChange={handleColorChange}
                         onToggleVisibility={handleToggleVisibility}
+                        onToggleLabel={handleToggleLabel}
                         animateEntrance={recentlyMoved.has(snippet.id)}
                       />
                     ))}

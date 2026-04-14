@@ -1,15 +1,19 @@
-import uuid
 import re
+import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import and_, asc, case, desc, func, or_, text
+from sqlalchemy import and_, asc, case, desc, exists, func, or_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.core.short_code import int_to_base36
-from app.models.snippet import Snippet, SnippetSortField
+from app.models.label import Label
+from app.models.snippet import Snippet, SnippetRead, SnippetSortField
+from app.models.snippet_label import SnippetLabel
+from app.services.label_service import get_snippet_labels
 
 _WHITESPACE_RE = re.compile(r"\s+")
+_LABEL_TOKEN_RE = re.compile(r"^(?P<prefix>!?-|!|-)#(?P<name>.+)$")
 
 
 def _normalize_query(value: str) -> str:
@@ -21,12 +25,42 @@ def _search_tokens(value: str | None) -> tuple[str, list[str]]:
         return "", []
 
     normalized = _normalize_query(value)
-    tokens = [token for token in normalized.split(" ") if len(token) >= 2]
+    tokens: list[str] = []
+    for token in normalized.split(" "):
+        if not token:
+            continue
+        if _LABEL_TOKEN_RE.match(token):
+            continue
+        if len(token) >= 2:
+            tokens.append(token)
     return normalized, tokens
 
 
 def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_")
+
+
+async def _serialize_snippet_row(session: AsyncSession, row: dict) -> dict:
+    payload = dict(row)
+    payload["labels"] = [label.model_dump(mode="json") for label in await get_snippet_labels(session, payload["id"])]
+    return payload
+
+
+async def _serialize_snippet(session: AsyncSession, snippet: Snippet) -> SnippetRead:
+    return SnippetRead(
+        id=snippet.id,
+        user_id=snippet.user_id,
+        title=snippet.title,
+        language=snippet.language,
+        content=snippet.content,
+        short_code=snippet.short_code,
+        is_pinned=snippet.is_pinned,
+        is_public=snippet.is_public,
+        color=snippet.color,
+        labels=await get_snippet_labels(session, snippet.id),
+        created_at=snippet.created_at,
+        updated_at=snippet.updated_at,
+    )
 
 
 async def create_snippet(
@@ -35,14 +69,14 @@ async def create_snippet(
     title: str,
     language: str,
     content: str,
-) -> Snippet:
+) -> SnippetRead:
     seq_result = await session.execute(text("SELECT nextval('snippet_short_code_seq')"))
     short_code = int_to_base36(seq_result.scalar_one())
     snippet = Snippet(user_id=user_id, title=title, language=language, content=content, short_code=short_code)
     session.add(snippet)
     await session.commit()
     await session.refresh(snippet)
-    return snippet
+    return await _serialize_snippet(session, snippet)
 
 
 async def list_snippets_by_user(
@@ -54,6 +88,8 @@ async def list_snippets_by_user(
     offset: int = 0,
     pinned: bool | None = None,
     q: str | None = None,
+    labels: list[str] | None = None,
+    exclude_labels: list[str] | None = None,
 ) -> tuple[list[dict], int]:
     where_clauses = [Snippet.user_id == user_id]
     if pinned is not None:
@@ -75,9 +111,39 @@ async def list_snippets_by_user(
             )
         where_clauses.append(and_(*token_filters))
 
-    total = await session.scalar(
-        select(func.count()).select_from(Snippet).where(*where_clauses)
-    )
+    for label_name in labels or []:
+        normalized_label = label_name.strip().lower()
+        if not normalized_label:
+            continue
+        where_clauses.append(
+            exists(
+                select(SnippetLabel.snippet_id)
+                .join(Label, Label.id == SnippetLabel.label_id)
+                .where(
+                    SnippetLabel.snippet_id == Snippet.id,
+                    Label.user_id == user_id,
+                    func.lower(Label.name) == normalized_label,
+                )
+            )
+        )
+
+    for label_name in exclude_labels or []:
+        normalized_label = label_name.strip().lower()
+        if not normalized_label:
+            continue
+        where_clauses.append(
+            ~exists(
+                select(SnippetLabel.snippet_id)
+                .join(Label, Label.id == SnippetLabel.label_id)
+                .where(
+                    SnippetLabel.snippet_id == Snippet.id,
+                    Label.user_id == user_id,
+                    func.lower(Label.name) == normalized_label,
+                )
+            )
+        )
+
+    total = await session.scalar(select(func.count()).select_from(Snippet).where(*where_clauses))
 
     if tokens:
         escaped_query = _escape_like(normalized_query)
@@ -116,7 +182,7 @@ async def list_snippets_by_user(
         order_by = [order_expr]
 
     stmt = (
-        select(  # type: ignore[call-overload]  # SQLModel multi-column select not typed
+        select(  # type: ignore[call-overload]
             Snippet.id,
             Snippet.user_id,
             Snippet.title,
@@ -135,40 +201,52 @@ async def list_snippets_by_user(
         .offset(offset)
     )
     result = await session.execute(stmt)
-    return [row._asdict() for row in result.all()], total or 0
+    rows = [row._asdict() for row in result.all()]
+    return [await _serialize_snippet_row(session, row) for row in rows], total or 0
 
 
-async def get_snippet_by_id(session: AsyncSession, snippet_id: uuid.UUID) -> Snippet | None:
+async def get_snippet_by_id(session: AsyncSession, snippet_id: uuid.UUID) -> SnippetRead | None:
     result = await session.execute(select(Snippet).where(Snippet.id == snippet_id))
-    return result.scalar_one_or_none()
+    snippet = result.scalar_one_or_none()
+    if snippet is None:
+        return None
+    return await _serialize_snippet(session, snippet)
 
 
-async def delete_snippet(session: AsyncSession, snippet: Snippet) -> None:
-    await session.delete(snippet)
+async def delete_snippet(session: AsyncSession, snippet: SnippetRead | Snippet) -> None:
+    model = snippet
+    if not isinstance(snippet, Snippet):
+        result = await session.execute(select(Snippet).where(Snippet.id == snippet.id))
+        model = result.scalar_one()
+    await session.delete(model)
     await session.commit()
 
 
 async def update_snippet(
     session: AsyncSession,
-    snippet: Snippet,
+    snippet: SnippetRead | Snippet,
     title: str | None = None,
     language: str | None = None,
     content: str | None = None,
     color: str | None = None,
-) -> Snippet:
+) -> SnippetRead:
+    model = snippet
+    if not isinstance(snippet, Snippet):
+        result = await session.execute(select(Snippet).where(Snippet.id == snippet.id))
+        model = result.scalar_one()
     if title is not None:
-        snippet.title = title
+        model.title = title
     if language is not None:
-        snippet.language = language
+        model.language = language
     if content is not None:
-        snippet.content = content
+        model.content = content
     if color is not None:
-        snippet.color = None if color == "none" else color
-    snippet.updated_at = datetime.now(UTC).replace(tzinfo=None)
-    session.add(snippet)
+        model.color = None if color == "none" else color
+    model.updated_at = datetime.now(UTC).replace(tzinfo=None)
+    session.add(model)
     await session.commit()
-    await session.refresh(snippet)
-    return snippet
+    await session.refresh(model)
+    return await _serialize_snippet(session, model)
 
 
 async def get_snippet_by_short_code(session: AsyncSession, code: str) -> Snippet | None:
@@ -176,19 +254,27 @@ async def get_snippet_by_short_code(session: AsyncSession, code: str) -> Snippet
     return result.scalar_one_or_none()
 
 
-async def toggle_snippet_pin(session: AsyncSession, snippet: Snippet) -> Snippet:
-    snippet.is_pinned = not snippet.is_pinned
-    snippet.updated_at = datetime.now(UTC).replace(tzinfo=None)
-    session.add(snippet)
+async def toggle_snippet_pin(session: AsyncSession, snippet: SnippetRead | Snippet) -> SnippetRead:
+    model = snippet
+    if not isinstance(snippet, Snippet):
+        result = await session.execute(select(Snippet).where(Snippet.id == snippet.id))
+        model = result.scalar_one()
+    model.is_pinned = not model.is_pinned
+    model.updated_at = datetime.now(UTC).replace(tzinfo=None)
+    session.add(model)
     await session.commit()
-    await session.refresh(snippet)
-    return snippet
+    await session.refresh(model)
+    return await _serialize_snippet(session, model)
 
 
-async def toggle_snippet_visibility(session: AsyncSession, snippet: Snippet) -> Snippet:
-    snippet.is_public = not snippet.is_public
-    snippet.updated_at = datetime.now(UTC).replace(tzinfo=None)
-    session.add(snippet)
+async def toggle_snippet_visibility(session: AsyncSession, snippet: SnippetRead | Snippet) -> SnippetRead:
+    model = snippet
+    if not isinstance(snippet, Snippet):
+        result = await session.execute(select(Snippet).where(Snippet.id == snippet.id))
+        model = result.scalar_one()
+    model.is_public = not model.is_public
+    model.updated_at = datetime.now(UTC).replace(tzinfo=None)
+    session.add(model)
     await session.commit()
-    await session.refresh(snippet)
-    return snippet
+    await session.refresh(model)
+    return await _serialize_snippet(session, model)

@@ -1,20 +1,23 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import type { SnippetListItem } from "@/types/snippet";
+import type { LabelRead, SnippetListItem } from "@/types/snippet";
 import { formatSize } from "@/lib/format-size";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { ContextMenu, type ContextMenuItem } from "@/components/ui/ContextMenu";
 import { ColorPickerRow } from "@/components/ui/ColorPickerRow";
+import { LabelPickerRow } from "@/components/ui/LabelPickerRow";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useTheme } from "@/hooks/useTheme";
 import { getSnippetColorStyle } from "@/lib/snippet-colors";
 
 interface SnippetCardProps {
   snippet: SnippetListItem;
+  allLabels?: LabelRead[];
   onDelete: (id: string) => void;
   onTogglePin: (id: string) => void;
   onColorChange: (id: string, color: string | null) => void;
   onToggleVisibility: (id: string) => void;
+  onToggleLabel: (snippetId: string, labelId: string) => void;
   animateEntrance?: boolean;
 }
 
@@ -26,11 +29,18 @@ function PinIcon({ size = 14 }: { size?: number }) {
   );
 }
 
-export function SnippetCard({ snippet, onDelete, onTogglePin, onColorChange, onToggleVisibility, animateEntrance }: SnippetCardProps) {
+function withOpacity(color: string, opacity: number): string {
+  return `${color}${Math.round(opacity * 255)
+    .toString(16)
+    .padStart(2, "0")}`;
+}
+
+export function SnippetCard({ snippet, allLabels = [], onDelete, onTogglePin, onColorChange, onToggleVisibility, onToggleLabel, animateEntrance }: SnippetCardProps) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { resolved } = useTheme();
   const colorStyle = getSnippetColorStyle(snippet.color, resolved);
+  const selectedLabelIds = new Set(snippet.labels.map((label) => label.id));
   const [hovered, setHovered] = useState(false);
   const [kebabHovered, setKebabHovered] = useState(false);
   const [pinHovered, setPinHovered] = useState(false);
@@ -197,6 +207,30 @@ export function SnippetCard({ snippet, onDelete, onTogglePin, onColorChange, onT
         </button>
       </div>
 
+      {snippet.labels.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+          {snippet.labels.map((label) => (
+            <span
+              key={label.id}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                padding: "2px 8px",
+                borderRadius: "999px",
+                background: withOpacity(label.color, 0.18),
+                color: label.color,
+                border: `1px solid ${withOpacity(label.color, 0.4)}`,
+                fontFamily: "var(--font-mono)",
+                fontSize: "11px",
+                lineHeight: 1.4,
+              }}
+            >
+              #{label.name}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Size info */}
       <div
         style={{
@@ -264,13 +298,23 @@ export function SnippetCard({ snippet, onDelete, onTogglePin, onColorChange, onT
       position={contextMenuPos}
       onClose={() => setContextMenuPos(null)}
       footer={
-        <ColorPickerRow
-          currentColor={snippet.color}
-          onSelect={(color) => {
-            onColorChange(snippet.id, color);
-            setContextMenuPos(null);
-          }}
-        />
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <ColorPickerRow
+            currentColor={snippet.color}
+            onSelect={(color) => {
+              onColorChange(snippet.id, color);
+              setContextMenuPos(null);
+            }}
+          />
+          <LabelPickerRow
+            labels={allLabels}
+            selectedIds={selectedLabelIds}
+            onToggle={(labelId) => {
+              onToggleLabel(snippet.id, labelId);
+              setContextMenuPos(null);
+            }}
+          />
+        </div>
       }
     />
 

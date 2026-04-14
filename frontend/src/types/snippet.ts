@@ -1,3 +1,9 @@
+export interface LabelRead {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface SnippetListItem {
   id: string;
   user_id: string;
@@ -8,6 +14,7 @@ export interface SnippetListItem {
   is_pinned: boolean;
   is_public: boolean;
   color: string | null;
+  labels: LabelRead[];
   created_at: string;
   updated_at: string;
 }
@@ -22,6 +29,7 @@ export interface Snippet {
   is_pinned: boolean;
   is_public: boolean;
   color: string | null;
+  labels: LabelRead[];
   created_at: string;
   updated_at: string;
 }

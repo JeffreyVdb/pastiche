@@ -4,6 +4,7 @@ import click
 from click.core import ParameterSource
 
 from cli_anything.pastiche.commands.keys import keys
+from cli_anything.pastiche.commands.labels import labels
 from cli_anything.pastiche.commands.repl import repl
 from cli_anything.pastiche.commands.snippets import snippets
 from cli_anything.pastiche.commands.whoami import whoami
@@ -39,6 +40,7 @@ def cli(ctx: click.Context, url: str | None, api_key: str | None, output_json: b
 
 
 cli.add_command(snippets)
+cli.add_command(labels)
 cli.add_command(keys)
 cli.add_command(whoami)
 cli.add_command(repl)

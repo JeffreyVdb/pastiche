@@ -6,6 +6,8 @@ from typing import Literal
 import sqlalchemy as sa
 from sqlmodel import Column, Field, SQLModel
 
+from app.models.label import LabelRead
+
 
 class Snippet(SQLModel, table=True):
     __tablename__ = "snippets"
@@ -59,6 +61,7 @@ class SnippetListRead(SQLModel):
     is_pinned: bool
     is_public: bool
     color: str | None
+    labels: list[LabelRead] = []
     created_at: datetime
     updated_at: datetime
 
@@ -73,6 +76,7 @@ class SnippetRead(SQLModel):
     is_pinned: bool
     is_public: bool
     color: str | None
+    labels: list[LabelRead] = []
     created_at: datetime
     updated_at: datetime
 

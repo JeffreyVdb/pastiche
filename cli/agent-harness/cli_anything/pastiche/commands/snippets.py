@@ -8,6 +8,13 @@ from cli_anything.pastiche.commands._shared import async_command, emit_success, 
 from cli_anything.pastiche.core.output import print_json, print_snippet, print_snippet_list
 
 
+def _parse_labels(value: str | None) -> list[str] | None:
+    if value is None:
+        return None
+    labels = [part.strip() for part in value.split(",") if part.strip()]
+    return labels
+
+
 @click.group()
 def snippets() -> None:
     """Manage snippets."""
@@ -17,13 +24,19 @@ def snippets() -> None:
 @click.option("--title", required=True)
 @click.option("--language", default="autodetect", show_default=True)
 @click.option("--content")
+@click.option("--labels", help="Comma-separated label names")
 @click.pass_context
 @handle_errors
 @async_command
-async def create(ctx: click.Context, title: str, language: str, content: str | None) -> None:
+async def create(ctx: click.Context, title: str, language: str, content: str | None, labels: str | None) -> None:
     snippet_content = content if content is not None else _read_content_from_stdin()
     async with with_client(ctx) as client:
-        payload = await client.create_snippet(title=title, language=language, content=snippet_content)
+        payload = await client.create_snippet(
+            title=title,
+            language=language,
+            content=snippet_content,
+            labels=_parse_labels(labels),
+        )
 
     if ctx.obj["json"]:
         print_json(payload)
@@ -84,15 +97,23 @@ async def get(ctx: click.Context, snippet_id: str) -> None:
 @click.option("--language")
 @click.option("--content")
 @click.option("--color", type=click.Choice(["red", "orange", "green", "blue", "purple", "none"]))
+@click.option("--labels", help="Comma-separated label names")
 @click.pass_context
 @handle_errors
 @async_command
-async def update(ctx: click.Context, snippet_id: str, title: str | None, language: str | None, content: str | None, color: str | None) -> None:
-    if not any(value is not None for value in (title, language, content, color)):
+async def update(ctx: click.Context, snippet_id: str, title: str | None, language: str | None, content: str | None, color: str | None, labels: str | None) -> None:
+    if not any(value is not None for value in (title, language, content, color, labels)):
         raise click.ClickException("Provide at least one field to update")
 
     async with with_client(ctx) as client:
-        payload = await client.update_snippet(snippet_id, title=title, language=language, content=content, color=color)
+        payload = await client.update_snippet(
+            snippet_id,
+            title=title,
+            language=language,
+            content=content,
+            color=color,
+            labels=_parse_labels(labels),
+        )
 
     if ctx.obj["json"]:
         print_json(payload)

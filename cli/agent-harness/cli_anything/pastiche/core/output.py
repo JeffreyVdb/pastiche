@@ -78,6 +78,13 @@ def print_api_key_list(items: Sequence[dict[str, Any]]) -> None:
     )
 
 
+def print_label_list(items: Sequence[dict[str, Any]]) -> None:
+    print_table(
+        ["id", "name", "color"],
+        [[item["id"], item["name"], item["color"]] for item in items],
+    )
+
+
 def print_user(user: dict[str, Any]) -> None:
     click.echo("\n".join([
         f"Username: {user['username']}",

@@ -17,6 +17,7 @@ import {
 } from "@/lib/fonts";
 import type { ApiKey, ApiKeyCreated } from "@/types/api-key";
 import type { PaginatedResponse } from "@/types/pagination";
+import type { LabelRead } from "@/types/snippet";
 
 const CODE_PREVIEWS: { language: string; label: string; code: string }[] = [
   {
@@ -111,9 +112,13 @@ export function Settings() {
     setMarkdownFontSize,
   } = useSettings();
   const [keys, setKeys] = useState<ApiKey[]>([]);
+  const [labels, setLabels] = useState<LabelRead[]>([]);
   const [keysLoading, setKeysLoading] = useState(true);
+  const [labelsLoading, setLabelsLoading] = useState(true);
   const [newKeyName, setNewKeyName] = useState("");
+  const [newLabelName, setNewLabelName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [creatingLabel, setCreatingLabel] = useState(false);
   const [revealedKey, setRevealedKey] = useState<ApiKeyCreated | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -129,11 +134,24 @@ export function Settings() {
     }
   }, []);
 
+  const fetchLabels = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const data = await api.get<LabelRead[]>("/api/labels", { signal });
+      setLabels(data);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      // silent
+    } finally {
+      setLabelsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
     fetchKeys(controller.signal);
+    fetchLabels(controller.signal);
     return () => controller.abort();
-  }, [fetchKeys]);
+  }, [fetchKeys, fetchLabels]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -158,6 +176,45 @@ export function Settings() {
       await api.delete(`/api/keys/${id}`);
     } catch {
       setKeys(previous);
+    }
+  }
+
+  async function handleCreateLabel(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newLabelName.trim() || creatingLabel) return;
+    setCreatingLabel(true);
+    try {
+      const created = await api.post<LabelRead>("/api/labels", { name: newLabelName.trim() });
+      setLabels((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewLabelName("");
+    } catch {
+      // silent
+    } finally {
+      setCreatingLabel(false);
+    }
+  }
+
+  async function handleUpdateLabel(id: string, patch: Partial<Pick<LabelRead, "name" | "color">>) {
+    const previous = labels;
+    setLabels((prev) =>
+      prev
+        .map((label) => (label.id === id ? { ...label, ...patch } : label))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    );
+    try {
+      await api.patch(`/api/labels/${id}`, patch);
+    } catch {
+      setLabels(previous);
+    }
+  }
+
+  async function handleDeleteLabel(id: string) {
+    const previous = labels;
+    setLabels((prev) => prev.filter((label) => label.id !== id));
+    try {
+      await api.delete(`/api/labels/${id}`);
+    } catch {
+      setLabels(previous);
     }
   }
 
@@ -571,6 +628,123 @@ export function Settings() {
           }}
         />
 
+        <section style={{ marginBottom: "56px" }}>
+          <div style={{ marginBottom: "20px" }}>
+            <p
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "10px",
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                color: "var(--color-text-muted)",
+                margin: "0 0 4px 0",
+                opacity: 0.6,
+              }}
+            >
+              // labels
+            </p>
+            <h2
+              style={{
+                margin: 0,
+                fontSize: "16px",
+                fontWeight: 600,
+                color: "var(--color-text)",
+                fontFamily: "var(--font-sans)",
+                letterSpacing: "-0.03em",
+              }}
+            >
+              Labels
+            </h2>
+          </div>
+
+          <form onSubmit={handleCreateLabel} style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
+            <input
+              type="text"
+              value={newLabelName}
+              onChange={(e) => setNewLabelName(e.target.value)}
+              placeholder="Label name"
+              maxLength={50}
+              style={{
+                flex: 1,
+                padding: "9px 14px",
+                background: "var(--color-surface)",
+                border: "1px solid var(--color-border)",
+                borderRadius: "8px",
+                color: "var(--color-text)",
+                fontFamily: "var(--font-mono)",
+                fontSize: "13px",
+              }}
+            />
+            <button
+              type="submit"
+              disabled={creatingLabel || !newLabelName.trim()}
+              style={{
+                padding: "9px 18px",
+                background: "var(--color-accent-dim)",
+                color: "var(--color-accent)",
+                border: "1px solid var(--color-accent)",
+                borderRadius: "8px",
+                cursor: creatingLabel || !newLabelName.trim() ? "not-allowed" : "pointer",
+                fontFamily: "var(--font-sans)",
+                fontSize: "13px",
+                fontWeight: 600,
+                opacity: creatingLabel || !newLabelName.trim() ? 0.5 : 1,
+              }}
+            >
+              {creatingLabel ? "Adding..." : "Add"}
+            </button>
+          </form>
+
+          {labelsLoading ? (
+            <div style={{ display: "flex", justifyContent: "center", padding: "24px" }}>
+              <div
+                style={{
+                  width: "18px",
+                  height: "18px",
+                  border: "2px solid var(--color-border)",
+                  borderTopColor: "var(--color-accent)",
+                  borderRadius: "50%",
+                  animation: "spin 0.8s linear infinite",
+                }}
+              />
+            </div>
+          ) : labels.length === 0 ? (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "28px 24px",
+                color: "var(--color-text-muted)",
+                fontFamily: "var(--font-mono)",
+                fontSize: "13px",
+                opacity: 0.5,
+              }}
+            >
+              No labels yet.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {labels.map((label) => (
+                <LabelRow
+                  key={label.id}
+                  label={label}
+                  onUpdate={handleUpdateLabel}
+                  onDelete={handleDeleteLabel}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Divider */}
+        <div
+          style={{
+            height: "1px",
+            background: "var(--color-border)",
+            opacity: 0.5,
+            marginBottom: "48px",
+          }}
+        />
+
         {/* ── API Keys ── */}
         <section>
           <div style={{ marginBottom: "20px" }}>
@@ -780,6 +954,124 @@ function FontSizeStepper({
         +
       </button>
     </div>
+  );
+}
+
+function LabelRow({
+  label,
+  onUpdate,
+  onDelete,
+}: {
+  label: LabelRead;
+  onUpdate: (id: string, patch: Partial<Pick<LabelRead, "name" | "color">>) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [name, setName] = useState(label.name);
+  const [color, setColor] = useState(label.color);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  useEffect(() => {
+    setName(label.name);
+    setColor(label.color);
+  }, [label.color, label.name]);
+
+  return (
+    <>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          padding: "14px 18px",
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
+          borderRadius: "10px",
+        }}
+      >
+        <span
+          style={{
+            width: "12px",
+            height: "12px",
+            borderRadius: "999px",
+            background: label.color,
+            border: `1px solid ${label.color}`,
+            flexShrink: 0,
+          }}
+        />
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => name.trim() && name !== label.name && onUpdate(label.id, { name: name.trim() })}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              if (name.trim() && name !== label.name) onUpdate(label.id, { name: name.trim() });
+            }
+          }}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            background: "transparent",
+            border: "1px solid var(--color-border)",
+            borderRadius: "8px",
+            color: "var(--color-text)",
+            padding: "8px 10px",
+            fontFamily: "var(--font-sans)",
+            fontSize: "13px",
+          }}
+        />
+        <input
+          type="text"
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
+          onBlur={() => /^#[0-9a-fA-F]{6}$/.test(color) && color !== label.color && onUpdate(label.id, { color })}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              if (/^#[0-9a-fA-F]{6}$/.test(color) && color !== label.color) onUpdate(label.id, { color });
+            }
+          }}
+          style={{
+            width: "100px",
+            background: "transparent",
+            border: "1px solid var(--color-border)",
+            borderRadius: "8px",
+            color: "var(--color-text-muted)",
+            padding: "8px 10px",
+            fontFamily: "var(--font-mono)",
+            fontSize: "12px",
+          }}
+        />
+        <button
+          onClick={() => setConfirmOpen(true)}
+          style={{
+            flexShrink: 0,
+            background: "transparent",
+            border: "1px solid var(--color-border)",
+            borderRadius: "6px",
+            cursor: "pointer",
+            color: "var(--color-text-muted)",
+            fontFamily: "var(--font-mono)",
+            fontSize: "11px",
+            padding: "5px 10px",
+          }}
+        >
+          rm
+        </button>
+      </div>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Delete label"
+        message={`#${label.name} will be removed from all snippets.`}
+        confirmLabel="delete"
+        onConfirm={() => {
+          setConfirmOpen(false);
+          onDelete(label.id);
+        }}
+        onCancel={() => setConfirmOpen(false)}
+      />
+    </>
   );
 }
 
