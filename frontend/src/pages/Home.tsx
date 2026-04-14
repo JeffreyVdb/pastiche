@@ -6,17 +6,14 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useSnippetSearchSession } from "@/hooks/useSnippetSearchSession";
 import { api } from "@/lib/api";
 import { groupSnippetsByDate } from "@/lib/date-groups";
-import {
-  getCommittedSnippetSearchQuery,
-  normalizeSnippetSearchInput,
-} from "@/lib/snippet-search";
+import { getCommittedSnippetSearchQuery } from "@/lib/snippet-search";
 import type { PaginatedResponse } from "@/types/pagination";
 import type { SnippetListItem } from "@/types/snippet";
 
 const PAGE_SIZE = 25;
-const SEARCH_DEBOUNCE_MS = 250;
 
 interface HomeProps {
   initialQuery?: string;
@@ -60,10 +57,17 @@ export function Home({ initialQuery = "" }: HomeProps) {
   const navigate = useNavigate();
 
   const routeQuery = getCommittedSnippetSearchQuery(initialQuery);
-  const isSearchMode = Boolean(routeQuery);
+  const {
+    rawQuery,
+    searchQuery,
+    searchOpen,
+    setRawQuery,
+    setSearchOpen,
+    clearSearch,
+    commitSearchNow,
+  } = useSnippetSearchSession({ routeQuery, navigate });
+  const isSearchMode = Boolean(searchQuery);
 
-  const [rawQuery, setRawQuery] = useState(routeQuery);
-  const [searchOpen, setSearchOpen] = useState(Boolean(routeQuery));
   const [snippets, setSnippets] = useState<SnippetListItem[]>([]);
   const [snippetsLoading, setSnippetsLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -179,40 +183,13 @@ export function Home({ initialQuery = "" }: HomeProps) {
     if (isSearchMode) {
       setPinnedSnippets([]);
       setPinnedLoading(false);
-      await fetchListPage(0, routeQuery);
+      await fetchListPage(0, searchQuery);
       return;
     }
 
     fetchPinnedSnippets();
     await fetchListPage(0, "");
-  }, [fetchListPage, fetchPinnedSnippets, isSearchMode, routeQuery]);
-
-  useEffect(() => {
-    setRawQuery((prev) => {
-      if (normalizeSnippetSearchInput(prev) === routeQuery) return prev;
-      return routeQuery;
-    });
-    if (routeQuery) setSearchOpen(true);
-  }, [routeQuery]);
-
-  useEffect(() => {
-    const normalized = normalizeSnippetSearchInput(rawQuery);
-
-    if (!normalized) {
-      if (routeQuery) {
-        navigate({ to: "/", search: {}, replace: true });
-      }
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      const nextQuery = getCommittedSnippetSearchQuery(normalized);
-      if (nextQuery === routeQuery) return;
-      navigate({ to: "/", search: nextQuery ? { q: nextQuery } : {}, replace: true });
-    }, SEARCH_DEBOUNCE_MS);
-
-    return () => window.clearTimeout(timeout);
-  }, [navigate, rawQuery, routeQuery]);
+  }, [fetchListPage, fetchPinnedSnippets, isSearchMode, searchQuery]);
 
   useEffect(() => {
     setFetchError(null);
@@ -221,7 +198,7 @@ export function Home({ initialQuery = "" }: HomeProps) {
     if (isSearchMode) {
       cancelPinnedRequest();
       setPinnedLoading(false);
-      fetchListPage(0, routeQuery);
+      fetchListPage(0, searchQuery);
       return () => cancelListRequest();
     }
 
@@ -238,7 +215,7 @@ export function Home({ initialQuery = "" }: HomeProps) {
     fetchListPage,
     fetchPinnedSnippets,
     isSearchMode,
-    routeQuery,
+    searchQuery,
   ]);
 
   useEffect(() => {
@@ -400,8 +377,8 @@ export function Home({ initialQuery = "" }: HomeProps) {
 
   const loadNextPage = useCallback(() => {
     if (loadingMore || fetchError || snippetsLoading) return;
-    fetchListPage(offset, routeQuery);
-  }, [fetchError, fetchListPage, loadingMore, offset, routeQuery, snippetsLoading]);
+    fetchListPage(offset, searchQuery);
+  }, [fetchError, fetchListPage, loadingMore, offset, searchQuery, snippetsLoading]);
 
   const sentinelRef = useIntersectionObserver({
     onIntersect: loadNextPage,
@@ -751,14 +728,8 @@ export function Home({ initialQuery = "" }: HomeProps) {
               onChange={setRawQuery}
               onOpen={() => setSearchOpen(true)}
               onClose={() => setSearchOpen(false)}
-              onClear={() => {
-                setRawQuery("");
-                navigate({ to: "/", search: {}, replace: true });
-              }}
-              onCommitNow={() => {
-                const nextQuery = getCommittedSnippetSearchQuery(rawQuery);
-                navigate({ to: "/", search: nextQuery ? { q: nextQuery } : {}, replace: true });
-              }}
+              onClear={clearSearch}
+              onCommitNow={commitSearchNow}
               showInput={!isMobile}
             />
 
@@ -787,14 +758,8 @@ export function Home({ initialQuery = "" }: HomeProps) {
               onChange={setRawQuery}
               onOpen={() => setSearchOpen(true)}
               onClose={() => setSearchOpen(false)}
-              onClear={() => {
-                setRawQuery("");
-                navigate({ to: "/", search: {}, replace: true });
-              }}
-              onCommitNow={() => {
-                const nextQuery = getCommittedSnippetSearchQuery(rawQuery);
-                navigate({ to: "/", search: nextQuery ? { q: nextQuery } : {}, replace: true });
-              }}
+              onClear={clearSearch}
+              onCommitNow={commitSearchNow}
               showTrigger={false}
             />
           </div>
@@ -828,15 +793,12 @@ export function Home({ initialQuery = "" }: HomeProps) {
                 textAlign: "center",
               }}
             >
-              No snippets match “{routeQuery}”.
+              No snippets match “{searchQuery}”.
             </p>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", justifyContent: "center" }}>
               <button
                 type="button"
-                onClick={() => {
-                  setRawQuery("");
-                  navigate({ to: "/", search: {}, replace: true });
-                }}
+                onClick={clearSearch}
                 style={{
                   padding: "8px 16px",
                   background: "transparent",
@@ -1017,7 +979,7 @@ export function Home({ initialQuery = "" }: HomeProps) {
             type="button"
             onClick={() => {
               setFetchError(null);
-              fetchListPage(offset, routeQuery);
+              fetchListPage(offset, searchQuery);
             }}
             style={{
               padding: "8px 16px",
