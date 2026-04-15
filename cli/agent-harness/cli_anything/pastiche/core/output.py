@@ -26,6 +26,7 @@ def print_table(headers: Sequence[str], rows: Sequence[Sequence[Any]]) -> None:
 
 
 def print_snippet(snippet: dict[str, Any]) -> None:
+    labels_str = ", ".join(f"#{label['name']}" for label in snippet.get("labels", [])) or "none"
     lines = [
         f"Title: {snippet['title']}",
         f"Language: {snippet['language']}",
@@ -34,6 +35,7 @@ def print_snippet(snippet: dict[str, Any]) -> None:
         f"Pinned: {'yes' if snippet.get('is_pinned') else 'no'}",
         f"Public: {'yes' if snippet.get('is_public') else 'no'}",
         f"Color: {snippet.get('color') or 'none'}",
+        f"Labels: {labels_str}",
         f"Short code: {snippet.get('short_code', '-')}",
         "",
         snippet.get("content", ""),
@@ -43,7 +45,7 @@ def print_snippet(snippet: dict[str, Any]) -> None:
 
 def print_snippet_list(items: Sequence[dict[str, Any]]) -> None:
     print_table(
-        ["id", "title", "language", "size", "short", "pinned", "public", "color", "updated"],
+        ["id", "title", "language", "size", "short", "labels", "pinned", "public", "color", "updated"],
         [
             [
                 item["id"],
@@ -51,6 +53,7 @@ def print_snippet_list(items: Sequence[dict[str, Any]]) -> None:
                 item["language"],
                 item.get("content_size", "-"),
                 item.get("short_code", "-"),
+                ", ".join(f"#{label['name']}" for label in item.get("labels", [])) or "-",
                 "yes" if item.get("is_pinned") else "no",
                 "yes" if item.get("is_public") else "no",
                 item.get("color") or "none",

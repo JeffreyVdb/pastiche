@@ -14,6 +14,17 @@ from cli_anything.pastiche import __version__
 _COMMANDS = [
     "help",
     "whoami",
+    "labels",
+    "labels create",
+    "labels update",
+    "labels delete",
+    "labels attach",
+    "labels detach",
+    "label-create",
+    "label-update",
+    "label-delete",
+    "label-attach",
+    "label-detach",
     "snippets create",
     "snippets list",
     "snippets get",
@@ -28,6 +39,15 @@ _COMMANDS = [
     "exit",
     "quit",
 ]
+
+_REPL_ALIASES = {
+    "labels": ["labels", "list"],
+    "label-create": ["labels", "create"],
+    "label-update": ["labels", "update"],
+    "label-delete": ["labels", "delete"],
+    "label-attach": ["labels", "attach"],
+    "label-detach": ["labels", "detach"],
+}
 
 
 @click.command()
@@ -75,6 +95,8 @@ def repl(ctx: click.Context) -> None:
             click.echo(click.style(f"✗ {exc}", fg="red"))
             continue
 
+        args = _expand_alias(args)
+
         from cli_anything.pastiche.pastiche_cli import cli
 
         try:
@@ -89,3 +111,11 @@ def repl(ctx: click.Context) -> None:
                 click.echo(click.style(f"✗ Command failed: {exc}", fg="red"))
         except click.ClickException as exc:
             click.echo(click.style(f"✗ {exc.format_message()}", fg="red"))
+
+
+def _expand_alias(args: list[str]) -> list[str]:
+    if not args:
+        return args
+    if args[0] == "labels":
+        return ["labels", "list"] if len(args) == 1 else args
+    return [*_REPL_ALIASES.get(args[0], [args[0]]), *args[1:]]

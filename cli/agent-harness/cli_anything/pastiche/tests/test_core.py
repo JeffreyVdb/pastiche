@@ -133,6 +133,7 @@ def test_print_helpers_render_human_and_json(capsys: pytest.CaptureFixture[str])
             "is_pinned": True,
             "is_public": False,
             "color": "blue",
+            "labels": [{"id": "label-1", "name": "frontend", "color": "#123abc"}, {"id": "label-2", "name": "urgent", "color": "#ef4444"}],
             "created_at": "2026-04-10T10:00:00",
             "updated_at": "2026-04-10T10:01:00",
         }
@@ -145,6 +146,7 @@ def test_print_helpers_render_human_and_json(capsys: pytest.CaptureFixture[str])
                 "language": "python",
                 "content_size": 11,
                 "short_code": "aaa",
+                "labels": [{"id": "label-1", "name": "frontend", "color": "#123abc"}],
                 "is_pinned": True,
                 "is_public": False,
                 "color": None,
@@ -157,10 +159,10 @@ def test_print_helpers_render_human_and_json(capsys: pytest.CaptureFixture[str])
 
     output = capsys.readouterr().out
     assert "Example" in output
+    assert "Labels: #frontend, #urgent" in output
     assert "alpha" in output
+    assert "#frontend" in output
     assert '"ok": true' in output
-
-
 def test_cli_invokes_repl_when_no_subcommand(monkeypatch: pytest.MonkeyPatch):
     from cli_anything.pastiche.pastiche_cli import cli
 
@@ -202,7 +204,7 @@ def test_cli_json_flag_is_stored_in_context(monkeypatch: pytest.MonkeyPatch):
     assert result.exit_code == 0
     payload = json.loads(result.output)
     assert payload["json"] is True
-    assert payload["config"] == {"url": "https://example.com", "api_key": "token"}
+    assert payload["config"] == {"url": "https://example.com", "api_key": "***"}
 
     cli.commands.pop("probe", None)
 
@@ -224,12 +226,12 @@ def test_cli_reuses_existing_config_in_repl_reentry(monkeypatch: pytest.MonkeyPa
     result = runner.invoke(
         cli,
         ["probe-reentry"],
-        obj={"config": {"url": "https://example.com", "api_key": "token"}, "json": True},
+        obj={"config": {"url": "https://example.com", "api_key": "***"}, "json": True},
     )
 
     assert result.exit_code == 0
     payload = json.loads(result.output)
-    assert payload["config"] == {"url": "https://example.com", "api_key": "token"}
+    assert payload["config"] == {"url": "https://example.com", "api_key": "***"}
     assert payload["json"] is True
 
     cli.commands.pop("probe-reentry", None)
@@ -304,6 +306,10 @@ def test_snippets_commands_forward_label_flags(monkeypatch: pytest.MonkeyPatch):
             calls.append(("create", kwargs))
             return {"id": "snippet-1", **kwargs, "short_code": "abc", "is_pinned": False, "is_public": False, "color": None, "created_at": "now", "updated_at": "now"}
 
+        async def list_snippets(self, **kwargs):
+            calls.append(("list", kwargs))
+            return {"items": [], "total": 0, "offset": kwargs["offset"], "limit": kwargs["limit"]}
+
         async def update_snippet(self, snippet_id, **kwargs):
             calls.append(("update", snippet_id, kwargs))
             return {"id": snippet_id, "title": kwargs.get("title") or "Old", "language": kwargs.get("language") or "python", "content": kwargs.get("content") or "print(1)", "short_code": "abc", "is_pinned": False, "is_public": False, "color": kwargs.get("color"), "created_at": "now", "updated_at": "now"}
@@ -322,6 +328,13 @@ def test_snippets_commands_forward_label_flags(monkeypatch: pytest.MonkeyPatch):
 
     result = runner.invoke(
         snippets,
+        ["list", "--query", "Example", "--labels", "frontend, urgent", "--exclude-labels", "bug"],
+        obj={"json": True, "config": {"url": "https://example.com", "api_key": "***"}},
+    )
+    assert result.exit_code == 0
+
+    result = runner.invoke(
+        snippets,
         ["update", "snippet-1", "--labels", "frontend", "--title", "Updated"],
         obj={"json": True, "config": {"url": "https://example.com", "api_key": "***"}},
     )
@@ -332,10 +345,67 @@ def test_snippets_commands_forward_label_flags(monkeypatch: pytest.MonkeyPatch):
         {"title": "Example", "language": "autodetect", "content": "print(1)", "labels": ["frontend", "urgent"]},
     )
     assert calls[1] == (
+        "list",
+        {
+            "sort_by": "created_at",
+            "order": "desc",
+            "q": "Example",
+            "limit": 50,
+            "offset": 0,
+            "pinned": None,
+            "labels": ["frontend", "urgent"],
+            "exclude_labels": ["bug"],
+        },
+    )
+    assert calls[2] == (
         "update",
         "snippet-1",
         {"title": "Updated", "language": None, "content": None, "color": None, "labels": ["frontend"]},
     )
+def test_repl_label_aliases_dispatch_to_cli(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    from cli_anything.pastiche.commands.repl import repl
+    from cli_anything.pastiche.pastiche_cli import cli
+
+    commands = iter([
+        "labels",
+        "labels create DirectFrontend",
+        "label-create Frontend",
+        "label-delete label-1",
+        "label-attach snippet-1 label-1",
+        "label-detach snippet-1 label-1",
+        "quit",
+    ])
+    seen_args: list[list[str]] = []
+
+    class FakeSession:
+        def __init__(self, *args, **kwargs):
+            return None
+
+        def prompt(self, _prompt: str) -> str:
+            return next(commands)
+
+    def fake_main(*, args, prog_name, standalone_mode, obj):
+        assert prog_name == "pastiche"
+        assert standalone_mode is False
+        assert obj["json"] is True
+        seen_args.append(args)
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr("cli_anything.pastiche.commands.repl.PromptSession", FakeSession)
+    monkeypatch.setattr(cli, "main", fake_main)
+
+    runner = CliRunner()
+    result = runner.invoke(repl, [], obj={"json": True, "config": {"url": "https://example.com", "api_key": "***"}})
+
+    assert result.exit_code == 0
+    assert seen_args == [
+        ["labels", "list"],
+        ["labels", "create", "DirectFrontend"],
+        ["labels", "create", "Frontend"],
+        ["labels", "delete", "label-1"],
+        ["labels", "attach", "snippet-1", "label-1"],
+        ["labels", "detach", "snippet-1", "label-1"],
+    ]
 
 
 def test_labels_commands_call_client(monkeypatch: pytest.MonkeyPatch):
@@ -356,6 +426,18 @@ def test_labels_commands_call_client(monkeypatch: pytest.MonkeyPatch):
             calls.append(("create", name))
             return {"id": "label-1", "name": name, "color": "#123abc"}
 
+        async def update_label(self, label_id, **kwargs):
+            calls.append(("update", label_id, kwargs))
+            return {"id": label_id, "name": kwargs.get("name") or "Frontend", "color": kwargs.get("color") or "#123abc"}
+
+        async def attach_label(self, label_id, snippet_id):
+            calls.append(("attach", label_id, snippet_id))
+            return None
+
+        async def detach_label(self, label_id, snippet_id):
+            calls.append(("detach", label_id, snippet_id))
+            return None
+
         async def delete_label(self, label_id):
             calls.append(("delete", label_id))
             return None
@@ -364,7 +446,14 @@ def test_labels_commands_call_client(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr("cli_anything.pastiche.commands.labels.with_client", lambda ctx: DummyClient())
 
     runner = CliRunner()
-    for args in (["list"], ["create", "Frontend"], ["delete", "label-1", "--force"]):
+    for args in (
+        ["list"],
+        ["create", "Frontend"],
+        ["update", "label-1", "--name", "UI", "--color", "#ef4444"],
+        ["attach", "snippet-1", "label-1"],
+        ["detach", "snippet-1", "label-1"],
+        ["delete", "label-1", "--force"],
+    ):
         result = runner.invoke(
             labels,
             args,
@@ -372,4 +461,11 @@ def test_labels_commands_call_client(monkeypatch: pytest.MonkeyPatch):
         )
         assert result.exit_code == 0
 
-    assert calls == [("list",), ("create", "Frontend"), ("delete", "label-1")]
+    assert calls == [
+        ("list",),
+        ("create", "Frontend"),
+        ("update", "label-1", {"name": "UI", "color": "#ef4444"}),
+        ("attach", "label-1", "snippet-1"),
+        ("detach", "label-1", "snippet-1"),
+        ("delete", "label-1"),
+    ]

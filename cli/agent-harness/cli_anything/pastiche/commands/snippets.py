@@ -51,10 +51,12 @@ async def create(ctx: click.Context, title: str, language: str, content: str | N
 @click.option("--limit", type=int, default=50, show_default=True)
 @click.option("--offset", type=int, default=0, show_default=True)
 @click.option("--pinned", type=click.Choice(["true", "false"]))
+@click.option("--labels", help="Comma-separated label names to include")
+@click.option("--exclude-labels", help="Comma-separated label names to exclude")
 @click.pass_context
 @handle_errors
 @async_command
-async def list_snippets(ctx: click.Context, query: str | None, sort_by: str, order: str, limit: int, offset: int, pinned: str | None) -> None:
+async def list_snippets(ctx: click.Context, query: str | None, sort_by: str, order: str, limit: int, offset: int, pinned: str | None, labels: str | None, exclude_labels: str | None) -> None:
     pinned_value = None if pinned is None else pinned == "true"
     async with with_client(ctx) as client:
         payload = await client.list_snippets(
@@ -64,6 +66,8 @@ async def list_snippets(ctx: click.Context, query: str | None, sort_by: str, ord
             limit=limit,
             offset=offset,
             pinned=pinned_value,
+            labels=_parse_labels(labels),
+            exclude_labels=_parse_labels(exclude_labels),
         )
 
     ctx.obj.setdefault("repl_state", {})["last_list"] = payload
@@ -88,7 +92,7 @@ async def get(ctx: click.Context, snippet_id: str) -> None:
     if ctx.obj["json"]:
         print_json(payload)
         return
-    click.echo(payload["content"])
+    print_snippet(payload)
 
 
 @snippets.command("update")

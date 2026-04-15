@@ -77,3 +77,42 @@ def test_key_lifecycle():
     assert any(item["id"] == key_id for item in listed["items"])
 
     run_cli("keys", "delete", key_id, "--force")
+
+
+def test_labels_update():
+    created = run_cli("labels", "create", "cli-e2e-label-update")
+    label_id = created["id"]
+
+    try:
+        updated = run_cli("labels", "update", label_id, "--name", "cli-e2e-label-updated", "--color", "#ef4444")
+        assert updated["id"] == label_id
+        assert updated["name"] == "cli-e2e-label-updated"
+        assert updated["color"] == "#ef4444"
+    finally:
+        run_cli("labels", "delete", label_id, "--force")
+
+
+def test_snippets_list_with_label_filter():
+    title = "cli test snippet labels"
+    label_name = "cli-e2e-filter-label"
+    created = run_cli(
+        "snippets",
+        "create",
+        "--title",
+        title,
+        "--language",
+        "python",
+        "--labels",
+        label_name,
+        input_text="print('hello labels')",
+    )
+    snippet_id = created["id"]
+
+    try:
+        included = run_cli("snippets", "list", "--query", title, "--labels", label_name)
+        assert any(item["id"] == snippet_id for item in included["items"])
+
+        excluded = run_cli("snippets", "list", "--query", title, "--exclude-labels", label_name)
+        assert all(item["id"] != snippet_id for item in excluded["items"])
+    finally:
+        run_cli("snippets", "delete", snippet_id, "--force")
