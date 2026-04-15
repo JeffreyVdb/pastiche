@@ -28,9 +28,11 @@
     "@tanstack/react-router": "^1.168.7",
     "@uiw/codemirror-themes": "^4.25.9",
     "@uiw/react-codemirror": "^4.25.9",
+    "mermaid": "^10.9.5",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-markdown": "^10.1.0",
+    "react-markdown-mermaid": "^0.0.3",
     "react-syntax-highlighter": "^16.1.1",
     "remark-gfm": "^4.0.1"
   },

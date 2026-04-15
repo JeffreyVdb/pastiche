@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import type { Snippet } from "@/types/snippet";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { useSettings } from "../../hooks/useSettings";
+import { MarkdownCode } from "@/components/ui/MarkdownCode";
 import { getHighlighterLanguage } from "@/lib/highlighter-lang";
 import type { SnippetDetailView } from "@/lib/snippet-detail-view";
 
@@ -194,7 +195,7 @@ export function ZenOverlay({
               fontFamily: "var(--font-markdown)",
             }}
           >
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ code: MarkdownCode }}>
               {content}
             </ReactMarkdown>
           </div>
