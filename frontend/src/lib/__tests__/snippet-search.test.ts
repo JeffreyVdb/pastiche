@@ -31,8 +31,10 @@ describe("snippet-search", () => {
     });
   });
 
-  it("drops label-only queries without searchable text", () => {
-    expect(getCommittedSnippetSearchQuery(" #frontend !#bug ")).toBe("");
+  it("keeps label-only queries in the committed query for URL persistence", () => {
+    expect(getCommittedSnippetSearchQuery("#feature")).toBe("#feature");
+    expect(getCommittedSnippetSearchQuery("#feature -#shopping")).toBe("#feature -#shopping");
+    expect(getCommittedSnippetSearchQuery(" !#bug ")).toBe("!#bug");
     expect(getSnippetSearchFilters(" #frontend !#bug ")).toEqual({
       textQuery: "",
       includeLabels: ["frontend"],

@@ -145,7 +145,7 @@ export function Home({ initialQuery = "" }: HomeProps) {
 
     if (textQuery) {
       params.set("q", textQuery);
-    } else {
+    } else if (includeLabels.length === 0 && excludeLabels.length === 0) {
       params.set("pinned", "false");
     }
 

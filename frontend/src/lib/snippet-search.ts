@@ -57,6 +57,10 @@ export function getSnippetSearchTokens(value: string): string[] {
 }
 
 export function getCommittedSnippetSearchQuery(value: string): string {
-  const normalized = getSnippetSearchFilters(value).textQuery;
-  return getSnippetSearchTokens(normalized).length > 0 ? normalized : "";
+  const filters = getSnippetSearchFilters(value);
+  if (filters.includeLabels.length > 0 || filters.excludeLabels.length > 0) {
+    return normalizeSnippetSearchInput(value);
+  }
+
+  return getSnippetSearchTokens(filters.textQuery).length > 0 ? filters.textQuery : "";
 }
