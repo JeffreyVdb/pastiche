@@ -49,7 +49,7 @@ export function MarkdownCode({ children, className, ...props }: MarkdownCodeProp
         customStyle={{
           background: "var(--color-surface)",
           fontFamily: "var(--font-mono)",
-          fontSize: "0.85em",
+          fontSize: "var(--font-size-code)",
           lineHeight: "1.6",
           padding: "16px 20px",
           margin: 0,

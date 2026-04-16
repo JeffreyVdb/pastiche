@@ -29,8 +29,16 @@ vi.mock("react-markdown-mermaid", () => ({
 }));
 
 vi.mock("react-syntax-highlighter", () => ({
-  default: ({ children, language }: { children: string; language?: string }) => (
-    <pre data-testid="syntax-highlighter" data-language={language ?? ""}>
+  default: ({
+    children,
+    customStyle,
+    language,
+  }: {
+    children: string;
+    customStyle?: Record<string, string>;
+    language?: string;
+  }) => (
+    <pre data-testid="syntax-highlighter" data-language={language ?? ""} style={customStyle}>
       {children}
     </pre>
   ),
@@ -105,6 +113,7 @@ describe("MarkdownCode", () => {
     expect(highlighted).not.toBeNull();
     expect(highlighted?.getAttribute("data-language")).toBe("typescript");
     expect(highlighted?.textContent).toContain("const answer = 42;");
+    expect((highlighted as HTMLElement | null)?.style.fontSize).toBe("var(--font-size-code)");
   });
 
   it("renders plain inline code when no language is provided", () => {
@@ -124,6 +133,7 @@ describe("MarkdownCode", () => {
 
     expect(css).toMatch(/\.markdown-preview ul\s*{[^}]*list-style-type:\s*disc;/s);
     expect(css).toMatch(/\.markdown-preview ol\s*{[^}]*list-style-type:\s*decimal;/s);
+    expect(css).toMatch(/\.markdown-preview pre code\s*{[^}]*font-size:\s*var\(--font-size-code\);/s);
     expect(css).toMatch(/\.markdown-preview \.mermaid-block\s*{/s);
     expect(css).toMatch(/\.markdown-preview \.mermaid-block svg\s*{/s);
   });
