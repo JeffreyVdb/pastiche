@@ -28,6 +28,7 @@ def print_table(headers: Sequence[str], rows: Sequence[Sequence[Any]]) -> None:
 def print_snippet(snippet: dict[str, Any]) -> None:
     labels_str = ", ".join(f"#{label['name']}" for label in snippet.get("labels", [])) or "none"
     lines = [
+        f"Snippet ID: {snippet.get('id', '-')}",
         f"Title: {snippet['title']}",
         f"Language: {snippet['language']}",
         f"Created: {snippet['created_at']}",

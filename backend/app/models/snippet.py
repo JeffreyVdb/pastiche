@@ -81,6 +81,13 @@ class SnippetRead(SQLModel):
     updated_at: datetime
 
 
+class SnippetResolve(SQLModel):
+    snippet_id: uuid.UUID
+    title: str
+    short_code: str
+    language: str
+
+
 class SnippetPublicRead(SQLModel):
     id: uuid.UUID
     title: str

@@ -10,6 +10,7 @@ from app.models.snippet import (
     SnippetListRead,
     SnippetPublicRead,
     SnippetRead,
+    SnippetResolve,
     SnippetSortField,
     SnippetUpdate,
 )
@@ -74,19 +75,29 @@ async def list_mine(
     )
 
 
-@router.get("/resolve/{code}")
+@router.get("/resolve/{code}", response_model=SnippetResolve)
 async def resolve_short_code(
     code: str, current_user: OptionalCurrentUser, session: SessionDep
-) -> dict:
+) -> SnippetResolve:
     snippet = await get_snippet_by_short_code(session=session, code=code.lower())
     if not snippet:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Snippet not found"
         )
     if current_user and snippet.user_id == current_user.id:
-        return {"snippet_id": str(snippet.id)}
+        return SnippetResolve(
+            snippet_id=snippet.id,
+            title=snippet.title,
+            short_code=snippet.short_code,
+            language=snippet.language,
+        )
     if snippet.is_public:
-        return {"snippet_id": str(snippet.id)}
+        return SnippetResolve(
+            snippet_id=snippet.id,
+            title=snippet.title,
+            short_code=snippet.short_code,
+            language=snippet.language,
+        )
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND, detail="Snippet not found"
     )

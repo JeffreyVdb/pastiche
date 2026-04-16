@@ -159,6 +159,7 @@ def test_print_helpers_render_human_and_json(capsys: pytest.CaptureFixture[str])
 
     output = capsys.readouterr().out
     assert "Example" in output
+    assert "Snippet ID: 123" in output
     assert "Labels: #frontend, #urgent" in output
     assert "alpha" in output
     assert "#frontend" in output

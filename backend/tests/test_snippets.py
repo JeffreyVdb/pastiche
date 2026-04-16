@@ -470,7 +470,12 @@ async def test_resolve_short_code_authenticated(client, test_session):
 
     resolve_resp = client.get(f"/api/snippets/resolve/{short_code}")
     assert resolve_resp.status_code == 200
-    assert resolve_resp.json()["snippet_id"] == snippet_id
+    assert resolve_resp.json() == {
+        "snippet_id": snippet_id,
+        "title": "resolve me",
+        "short_code": short_code,
+        "language": "autodetect",
+    }
 
 
 async def test_resolve_short_code_unauthenticated(client, test_session):
@@ -487,7 +492,12 @@ async def test_resolve_short_code_unauthenticated(client, test_session):
     client.cookies.clear()
     resolve_resp = client.get(f"/api/snippets/resolve/{short_code}")
     assert resolve_resp.status_code == 200
-    assert resolve_resp.json()["snippet_id"] == snippet_id
+    assert resolve_resp.json() == {
+        "snippet_id": snippet_id,
+        "title": "public resolve",
+        "short_code": short_code,
+        "language": "autodetect",
+    }
 
 
 async def test_resolve_short_code_private_unauthenticated(client, test_session):
@@ -516,7 +526,12 @@ async def test_resolve_short_code_private_as_owner(client, test_session):
 
     resolve_resp = client.get(f"/api/snippets/resolve/{short_code}")
     assert resolve_resp.status_code == 200
-    assert resolve_resp.json()["snippet_id"] == snippet_id
+    assert resolve_resp.json() == {
+        "snippet_id": snippet_id,
+        "title": "private owner",
+        "short_code": short_code,
+        "language": "autodetect",
+    }
 
 
 async def test_resolve_short_code_not_found(client, test_session):
