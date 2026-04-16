@@ -128,12 +128,16 @@ describe("MarkdownCode", () => {
     expect(container.querySelector('[data-testid="mermaid-block"]')).toBeNull();
   });
 
-  it("restores markdown list markers and mermaid container styles in index.css", () => {
+  it("restores markdown list markers, mermaid styles, and table overflow handling in index.css", () => {
     const css = readFileSync(`${process.cwd()}/src/index.css`, "utf8");
 
     expect(css).toMatch(/\.markdown-preview ul\s*{[^}]*list-style-type:\s*disc;/s);
     expect(css).toMatch(/\.markdown-preview ol\s*{[^}]*list-style-type:\s*decimal;/s);
     expect(css).toMatch(/\.markdown-preview pre code\s*{[^}]*font-size:\s*var\(--font-size-code\);/s);
+    expect(css).toMatch(/\.markdown-preview \.markdown-table-scroll\s*{[^}]*overflow-x:\s*auto;/s);
+    expect(css).toMatch(/\.markdown-preview \.markdown-table-scroll\s*{[^}]*margin:\s*1\.25em 0;/s);
+    expect(css).toMatch(/\.markdown-preview table\s*{[^}]*width:\s*max-content;/s);
+    expect(css).toMatch(/\.markdown-preview table\s*{[^}]*min-width:\s*100%;/s);
     expect(css).toMatch(/\.markdown-preview \.mermaid-block\s*{/s);
     expect(css).toMatch(/\.markdown-preview \.mermaid-block svg\s*{/s);
   });

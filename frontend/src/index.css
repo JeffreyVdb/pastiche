@@ -308,10 +308,16 @@ body {
   margin: 0;
 }
 
-.markdown-preview table {
-  width: 100%;
-  border-collapse: collapse;
+.markdown-preview .markdown-table-scroll {
+  overflow-x: auto;
   margin: 1.25em 0;
+}
+
+.markdown-preview table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  margin: 0;
   font-size: 0.9em;
 }
 

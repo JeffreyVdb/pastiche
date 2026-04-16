@@ -12,6 +12,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { useAuth } from "@/hooks/useAuth";
 import { ZenOverlay } from "@/components/ui/ZenOverlay";
 import { MarkdownCode } from "@/components/ui/MarkdownCode";
+import { MarkdownTable } from "@/components/ui/MarkdownTable";
 import { OverflowMenu, type OverflowMenuItem } from "@/components/ui/OverflowMenu";
 import { CodeEditor } from "@/components/snippets/CodeEditor";
 import { TaskEditor } from "@/components/snippets/TaskEditor";
@@ -478,7 +479,7 @@ export function ViewSnippet({
                 fontFamily: "var(--font-markdown)",
               }}
             >
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ code: MarkdownCode }}>
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ code: MarkdownCode, table: MarkdownTable }}>
                 {currentContent}
               </ReactMarkdown>
             </div>
