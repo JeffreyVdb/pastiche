@@ -785,6 +785,7 @@ export function Home({ initialQuery = "" }: HomeProps) {
             }}
           >
             <SnippetSearchControl
+              allLabels={allLabels}
               isMobile={isMobile}
               open={searchOpen}
               value={rawQuery}
@@ -815,6 +816,7 @@ export function Home({ initialQuery = "" }: HomeProps) {
         {isMobile && searchOpen && (
           <div style={{ width: "100%" }}>
             <SnippetSearchControl
+              allLabels={allLabels}
               isMobile
               open
               value={rawQuery}
