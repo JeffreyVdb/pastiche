@@ -2,6 +2,7 @@ import uuid
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, status
+from fastapi.responses import JSONResponse
 
 from app.api.deps import CurrentUser, OptionalCurrentUser, SessionDep
 from app.models.pagination import PaginatedResponse, PaginationLimit, PaginationOffset
@@ -14,6 +15,7 @@ from app.models.snippet import (
     SnippetSortField,
     SnippetUpdate,
 )
+from app.services.patch_service import PatchApplyError, apply_patch
 from app.services.snippet_service import (
     create_snippet,
     delete_snippet,
@@ -165,18 +167,26 @@ async def update(
     snippet_id: uuid.UUID,
     current_user: CurrentUser,
     session: SessionDep,
-) -> SnippetRead:
+) -> SnippetRead | JSONResponse:
     snippet = await get_snippet_by_id(session=session, snippet_id=snippet_id)
     if not snippet or snippet.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Snippet not found"
         )
+
+    content = body.content
+    if body.patch is not None:
+        try:
+            content = apply_patch(snippet.content, body.patch)
+        except PatchApplyError as exc:
+            return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content=exc.to_response())
+
     snippet = await update_snippet(
         session=session,
         snippet=snippet,
         title=body.title,
         language=body.language,
-        content=body.content,
+        content=content,
         color=body.color,
     )
     return SnippetRead.model_validate(snippet)

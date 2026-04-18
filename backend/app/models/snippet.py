@@ -4,6 +4,7 @@ from enum import StrEnum
 from typing import Literal
 
 import sqlalchemy as sa
+from pydantic import model_validator
 from sqlmodel import Column, Field, SQLModel
 
 from app.models.label import LabelRead
@@ -48,7 +49,14 @@ class SnippetUpdate(SQLModel):
     title: str | None = Field(default=None, min_length=1, max_length=255)
     language: str | None = Field(default=None, max_length=100)
     content: str | None = Field(default=None, min_length=1)
+    patch: str | None = Field(default=None, min_length=1)
     color: Literal["red", "orange", "green", "blue", "purple", "none"] | None = Field(default=None)
+
+    @model_validator(mode="after")
+    def validate_content_or_patch(self) -> "SnippetUpdate":
+        if self.content is not None and self.patch is not None:
+            raise ValueError("Provide either content or patch, not both")
+        return self
 
 
 class SnippetListRead(SQLModel):

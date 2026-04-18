@@ -119,6 +119,35 @@ async def test_client_raises_pastiche_error_for_non_2xx():
     assert excinfo.value.detail == "Snippet not found"
 
 
+@pytest.mark.asyncio
+async def test_client_preserves_patch_failure_details_in_error_message():
+    from cli_anything.pastiche.core.client import PasticheClient, PasticheError
+    from cli_anything.pastiche.core.config import PasticheConfig
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            422,
+            json={
+                "detail": "Patch failed",
+                "failed_hunk": 1,
+                "error": "context mismatch at line 3",
+                "expected_context": ["stale line"],
+                "current_content_hash": "sha256:deadbeef",
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with PasticheClient(PasticheConfig(url="https://pastiche.example", api_key="secret"), transport=transport) as client:
+        with pytest.raises(PasticheError) as excinfo:
+            await client.update_snippet("snippet-1", patch="--- a/snippet\n+++ b/snippet\n@@ -1 +1 @@\n-old\n+new\n")
+
+    assert excinfo.value.status == 422
+    assert excinfo.value.detail == (
+        "Patch failed (failed_hunk=1; error=context mismatch at line 3; "
+        "expected_context=['stale line']; current_content_hash=sha256:deadbeef)"
+    )
+
+
 def test_print_helpers_render_human_and_json(capsys: pytest.CaptureFixture[str]):
     from cli_anything.pastiche.core.output import print_json, print_snippet, print_snippet_list, print_table
 
@@ -313,7 +342,8 @@ def test_snippets_commands_forward_label_flags(monkeypatch: pytest.MonkeyPatch):
 
         async def update_snippet(self, snippet_id, **kwargs):
             calls.append(("update", snippet_id, kwargs))
-            return {"id": snippet_id, "title": kwargs.get("title") or "Old", "language": kwargs.get("language") or "python", "content": kwargs.get("content") or "print(1)", "short_code": "abc", "is_pinned": False, "is_public": False, "color": kwargs.get("color"), "created_at": "now", "updated_at": "now"}
+            content = kwargs.get("patch") or kwargs.get("content") or "print(1)"
+            return {"id": snippet_id, "title": kwargs.get("title") or "Old", "language": kwargs.get("language") or "python", "content": content, "short_code": "abc", "is_pinned": False, "is_public": False, "color": kwargs.get("color"), "created_at": "now", "updated_at": "now"}
 
     calls: list[tuple] = []
 
@@ -361,8 +391,230 @@ def test_snippets_commands_forward_label_flags(monkeypatch: pytest.MonkeyPatch):
     assert calls[2] == (
         "update",
         "snippet-1",
-        {"title": "Updated", "language": None, "content": None, "color": None, "labels": ["frontend"]},
+        {
+            "title": "Updated",
+            "language": None,
+            "content": None,
+            "patch": None,
+            "color": None,
+            "labels": ["frontend"],
+        },
     )
+
+
+
+def test_update_uses_stdin_for_content_when_content_flag_missing(monkeypatch: pytest.MonkeyPatch):
+    from cli_anything.pastiche.commands.snippets import snippets
+
+    calls: list[tuple] = []
+
+    class DummyClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def update_snippet(self, snippet_id, **kwargs):
+            calls.append((snippet_id, kwargs))
+            return {
+                "id": snippet_id,
+                "title": "Old",
+                "language": kwargs.get("language") or "python",
+                "content": kwargs.get("content") or "print(1)",
+                "short_code": "abc",
+                "is_pinned": False,
+                "is_public": False,
+                "color": kwargs.get("color"),
+                "created_at": "now",
+                "updated_at": "now",
+            }
+
+    monkeypatch.setattr("cli_anything.pastiche.commands.snippets.with_client", lambda ctx: DummyClient())
+
+    runner = CliRunner()
+    result = runner.invoke(
+        snippets,
+        ["update", "snippet-1"],
+        input="print('stdin')\n",
+        obj={"json": True, "config": {"url": "https://example.com", "api_key": "***"}},
+    )
+
+    assert result.exit_code == 0
+    assert calls == [
+        (
+            "snippet-1",
+            {
+                "title": None,
+                "language": None,
+                "content": "print('stdin')\n",
+                "patch": None,
+                "color": None,
+                "labels": None,
+            },
+        )
+    ]
+
+
+
+def test_update_prefers_content_flag_over_stdin(monkeypatch: pytest.MonkeyPatch):
+    from cli_anything.pastiche.commands.snippets import snippets
+
+    calls: list[tuple] = []
+
+    class DummyClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def update_snippet(self, snippet_id, **kwargs):
+            calls.append((snippet_id, kwargs))
+            return {
+                "id": snippet_id,
+                "title": "Old",
+                "language": kwargs.get("language") or "python",
+                "content": kwargs.get("content") or "print(1)",
+                "short_code": "abc",
+                "is_pinned": False,
+                "is_public": False,
+                "color": kwargs.get("color"),
+                "created_at": "now",
+                "updated_at": "now",
+            }
+
+    monkeypatch.setattr("cli_anything.pastiche.commands.snippets.with_client", lambda ctx: DummyClient())
+
+    runner = CliRunner()
+    result = runner.invoke(
+        snippets,
+        ["update", "snippet-1", "--content", "flag content"],
+        input="ignored stdin\n",
+        obj={"json": True, "config": {"url": "https://example.com", "api_key": "***"}},
+    )
+
+    assert result.exit_code == 0
+    assert calls == [
+        (
+            "snippet-1",
+            {
+                "title": None,
+                "language": None,
+                "content": "flag content",
+                "patch": None,
+                "color": None,
+                "labels": None,
+            },
+        )
+    ]
+
+
+
+def test_update_patch_flag_forwards_patch_text(monkeypatch: pytest.MonkeyPatch):
+    from cli_anything.pastiche.commands.snippets import snippets
+
+    calls: list[tuple] = []
+
+    class DummyClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def update_snippet(self, snippet_id, **kwargs):
+            calls.append((snippet_id, kwargs))
+            return {
+                "id": snippet_id,
+                "title": "Old",
+                "language": kwargs.get("language") or "python",
+                "content": kwargs.get("patch") or kwargs.get("content") or "print(1)",
+                "short_code": "abc",
+                "is_pinned": False,
+                "is_public": False,
+                "color": kwargs.get("color"),
+                "created_at": "now",
+                "updated_at": "now",
+            }
+
+    monkeypatch.setattr("cli_anything.pastiche.commands.snippets.with_client", lambda ctx: DummyClient())
+
+    runner = CliRunner()
+    result = runner.invoke(
+        snippets,
+        ["update", "snippet-1", "--patch", "--- a/snippet\n+++ b/snippet\n@@ -1 +1 @@\n-old\n+new\n"],
+        obj={"json": True, "config": {"url": "https://example.com", "api_key": "***"}},
+    )
+
+    assert result.exit_code == 0
+    assert calls == [
+        (
+            "snippet-1",
+            {
+                "title": None,
+                "language": None,
+                "content": None,
+                "patch": "--- a/snippet\n+++ b/snippet\n@@ -1 +1 @@\n-old\n+new\n",
+                "color": None,
+                "labels": None,
+            },
+        )
+    ]
+
+
+
+def test_update_patch_dash_reads_patch_from_stdin(monkeypatch: pytest.MonkeyPatch):
+    from cli_anything.pastiche.commands.snippets import snippets
+
+    calls: list[tuple] = []
+
+    class DummyClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def update_snippet(self, snippet_id, **kwargs):
+            calls.append((snippet_id, kwargs))
+            return {
+                "id": snippet_id,
+                "title": "Old",
+                "language": kwargs.get("language") or "python",
+                "content": kwargs.get("patch") or kwargs.get("content") or "print(1)",
+                "short_code": "abc",
+                "is_pinned": False,
+                "is_public": False,
+                "color": kwargs.get("color"),
+                "created_at": "now",
+                "updated_at": "now",
+            }
+
+    monkeypatch.setattr("cli_anything.pastiche.commands.snippets.with_client", lambda ctx: DummyClient())
+
+    runner = CliRunner()
+    result = runner.invoke(
+        snippets,
+        ["update", "snippet-1", "--patch", "-"],
+        input="--- a/snippet\n+++ b/snippet\n@@ -1 +1 @@\n-old\n+new\n",
+        obj={"json": True, "config": {"url": "https://example.com", "api_key": "***"}},
+    )
+
+    assert result.exit_code == 0
+    assert calls == [
+        (
+            "snippet-1",
+            {
+                "title": None,
+                "language": None,
+                "content": None,
+                "patch": "--- a/snippet\n+++ b/snippet\n@@ -1 +1 @@\n-old\n+new\n",
+                "color": None,
+                "labels": None,
+            },
+        )
+    ]
 def test_repl_label_aliases_dispatch_to_cli(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     from cli_anything.pastiche.commands.repl import repl
     from cli_anything.pastiche.pastiche_cli import cli

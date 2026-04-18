@@ -63,6 +63,18 @@ class PasticheClient:
         if isinstance(payload, dict):
             detail = payload.get("detail")
             if isinstance(detail, str):
+                if detail == "Patch failed":
+                    extras: list[str] = []
+                    for key in (
+                        "failed_hunk",
+                        "error",
+                        "expected_context",
+                        "current_content_hash",
+                    ):
+                        if key in payload and payload[key] is not None:
+                            extras.append(f"{key}={payload[key]}")
+                    if extras:
+                        return f"{detail} ({'; '.join(extras)})"
                 return detail
             if detail is not None:
                 return str(detail)
@@ -139,10 +151,17 @@ class PasticheClient:
         title: str | None = None,
         language: str | None = None,
         content: str | None = None,
+        patch: str | None = None,
         color: str | None = None,
         labels: list[str] | None = None,
     ) -> dict[str, Any]:
-        body = {"title": title, "language": language, "content": content, "color": color}
+        body = {
+            "title": title,
+            "language": language,
+            "content": content,
+            "patch": patch,
+            "color": color,
+        }
         await self._request(
             "PATCH",
             f"/snippets/{snippet_id}",

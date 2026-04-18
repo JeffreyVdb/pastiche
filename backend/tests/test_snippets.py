@@ -458,6 +458,278 @@ async def test_short_code_not_in_update(client, test_session):
     assert patch_resp.json()["short_code"] == original_code
 
 
+async def test_patch_updates_content(client, test_session):
+    user = await _create_user(test_session, github_id=220, username="u_patch_ok")
+    _auth(client, user)
+    create_resp = client.post(
+        "/api/snippets",
+        json={"title": "patch me", "language": "python", "content": "alpha\nbeta\ngamma\n"},
+    )
+    assert create_resp.status_code == 201
+    snippet_id = create_resp.json()["id"]
+
+    patch_resp = client.patch(
+        f"/api/snippets/{snippet_id}",
+        json={
+            "patch": "--- a/snippet\n+++ b/snippet\n@@ -1,3 +1,3 @@\n alpha\n-beta\n+beta updated\n gamma\n",
+        },
+    )
+
+    assert patch_resp.status_code == 200
+    assert patch_resp.json()["content"] == "alpha\nbeta updated\ngamma\n"
+
+
+async def test_patch_rejected_on_context_mismatch(client, test_session):
+    user = await _create_user(test_session, github_id=221, username="u_patch_stale")
+    _auth(client, user)
+    create_resp = client.post(
+        "/api/snippets",
+        json={"title": "patch stale", "language": "python", "content": "alpha\nbeta\ngamma\n"},
+    )
+    assert create_resp.status_code == 201
+    snippet_id = create_resp.json()["id"]
+
+    patch_resp = client.patch(
+        f"/api/snippets/{snippet_id}",
+        json={
+            "patch": "--- a/snippet\n+++ b/snippet\n@@ -1,3 +1,3 @@\n alpha\n-stale beta\n+beta updated\n gamma\n",
+        },
+    )
+
+    assert patch_resp.status_code == 422
+    assert patch_resp.json() == {
+        "detail": "Patch failed",
+        "failed_hunk": 0,
+        "error": "context mismatch at line 2",
+        "expected_context": ["stale beta"],
+        "current_content_hash": "sha256:4fdbc441ea7b546100e086ac1e4fc5ae6749b7314311c99db05be450eca12996",
+    }
+
+
+async def test_patch_and_content_rejected(client, test_session):
+    user = await _create_user(test_session, github_id=222, username="u_patch_both")
+    _auth(client, user)
+    create_resp = client.post(
+        "/api/snippets",
+        json={"title": "patch both", "language": "python", "content": "alpha\nbeta\n"},
+    )
+    assert create_resp.status_code == 201
+    snippet_id = create_resp.json()["id"]
+
+    patch_resp = client.patch(
+        f"/api/snippets/{snippet_id}",
+        json={
+            "content": "replacement",
+            "patch": "--- a/snippet\n+++ b/snippet\n@@ -1,2 +1,2 @@\n alpha\n-beta\n+beta updated\n",
+        },
+    )
+
+    assert patch_resp.status_code == 400
+    assert patch_resp.json() == {
+        "detail": "Provide either content or patch, not both"
+    }
+
+
+async def test_patch_multi_file_rejected(client, test_session):
+    user = await _create_user(test_session, github_id=223, username="u_patch_multi")
+    _auth(client, user)
+    create_resp = client.post(
+        "/api/snippets",
+        json={"title": "patch multi", "language": "python", "content": "alpha\nbeta\n"},
+    )
+    assert create_resp.status_code == 201
+    snippet_id = create_resp.json()["id"]
+
+    patch_resp = client.patch(
+        f"/api/snippets/{snippet_id}",
+        json={
+            "patch": "--- a/snippet\n+++ b/snippet\n@@ -1,2 +1,2 @@\n alpha\n-beta\n+beta updated\n--- a/other\n+++ b/other\n@@ -1 +1 @@\n-one\n+two\n",
+        },
+    )
+
+    assert patch_resp.status_code == 422
+    assert patch_resp.json() == {
+        "detail": "Patch failed",
+        "failed_hunk": 0,
+        "error": "patch must target exactly one file",
+        "expected_context": [],
+        "current_content_hash": "sha256:e49c81e2d2f84e259d40e2fb8192f3bcd198b355184845d76d8f58807d0d78ee",
+    }
+
+
+async def test_patch_invalid_format(client, test_session):
+    user = await _create_user(test_session, github_id=224, username="u_patch_bad")
+    _auth(client, user)
+    create_resp = client.post(
+        "/api/snippets",
+        json={"title": "patch invalid", "language": "python", "content": "alpha\nbeta\n"},
+    )
+    assert create_resp.status_code == 201
+    snippet_id = create_resp.json()["id"]
+
+    patch_resp = client.patch(
+        f"/api/snippets/{snippet_id}",
+        json={"patch": "not a unified diff"},
+    )
+
+    assert patch_resp.status_code == 422
+    assert patch_resp.json() == {
+        "detail": "Patch failed",
+        "failed_hunk": 0,
+        "error": "invalid unified diff",
+        "expected_context": [],
+        "current_content_hash": "sha256:e49c81e2d2f84e259d40e2fb8192f3bcd198b355184845d76d8f58807d0d78ee",
+    }
+
+
+async def test_patch_rejected_when_resulting_content_is_empty(client, test_session):
+    user = await _create_user(test_session, github_id=225, username="u_patch_empty")
+    _auth(client, user)
+    create_resp = client.post(
+        "/api/snippets",
+        json={"title": "patch empty", "language": "python", "content": "alpha\n"},
+    )
+    assert create_resp.status_code == 201
+    snippet_id = create_resp.json()["id"]
+
+    patch_resp = client.patch(
+        f"/api/snippets/{snippet_id}",
+        json={"patch": "--- a/snippet\n+++ b/snippet\n@@ -1 +0,0 @@\n-alpha\n"},
+    )
+
+    assert patch_resp.status_code == 422
+    assert patch_resp.json() == {
+        "detail": "Patch failed",
+        "failed_hunk": 0,
+        "error": "patched content cannot be empty",
+        "expected_context": [],
+        "current_content_hash": "sha256:b6a98d9ce9a2d9149288fa3df42d377c3e42737afdcdaf714e33c0a100b51060",
+    }
+
+
+async def test_patch_rejected_when_hunk_spans_do_not_match_body(client, test_session):
+    user = await _create_user(test_session, github_id=226, username="u_patch_span")
+    _auth(client, user)
+    create_resp = client.post(
+        "/api/snippets",
+        json={"title": "patch spans", "language": "python", "content": "alpha\nbeta\n"},
+    )
+    assert create_resp.status_code == 201
+    snippet_id = create_resp.json()["id"]
+
+    patch_resp = client.patch(
+        f"/api/snippets/{snippet_id}",
+        json={
+            "patch": "--- a/snippet\n+++ b/snippet\n@@ -1,1 +1,1 @@\n alpha\n-beta\n+beta updated\n",
+        },
+    )
+
+    assert patch_resp.status_code == 422
+    assert patch_resp.json() == {
+        "detail": "Patch failed",
+        "failed_hunk": 0,
+        "error": "invalid unified diff hunk header",
+        "expected_context": [],
+        "current_content_hash": "sha256:e49c81e2d2f84e259d40e2fb8192f3bcd198b355184845d76d8f58807d0d78ee",
+    }
+
+
+async def test_patch_rejected_when_hunk_source_start_is_invalid(client, test_session):
+    user = await _create_user(test_session, github_id=227, username="u_patch_source_start")
+    _auth(client, user)
+    create_resp = client.post(
+        "/api/snippets",
+        json={"title": "patch source start", "language": "python", "content": "alpha\nbeta\n"},
+    )
+    assert create_resp.status_code == 201
+    snippet_id = create_resp.json()["id"]
+
+    patch_resp = client.patch(
+        f"/api/snippets/{snippet_id}",
+        json={
+            "patch": "--- a/snippet\n+++ b/snippet\n@@ -0,1 +1,1 @@\n-alpha\n+alpha updated\n",
+        },
+    )
+
+    assert patch_resp.status_code == 422
+    assert patch_resp.json() == {
+        "detail": "Patch failed",
+        "failed_hunk": 0,
+        "error": "invalid unified diff hunk position",
+        "expected_context": [],
+        "current_content_hash": "sha256:e49c81e2d2f84e259d40e2fb8192f3bcd198b355184845d76d8f58807d0d78ee",
+    }
+
+
+async def test_patch_rejected_when_hunk_target_start_is_invalid(client, test_session):
+    user = await _create_user(test_session, github_id=228, username="u_patch_target_start")
+    _auth(client, user)
+    create_resp = client.post(
+        "/api/snippets",
+        json={"title": "patch target start", "language": "python", "content": "alpha\nbeta\n"},
+    )
+    assert create_resp.status_code == 201
+    snippet_id = create_resp.json()["id"]
+
+    patch_resp = client.patch(
+        f"/api/snippets/{snippet_id}",
+        json={
+            "patch": "--- a/snippet\n+++ b/snippet\n@@ -1,2 +99,2 @@\n-alpha\n-beta\n+alpha updated\n+beta updated\n",
+        },
+    )
+
+    assert patch_resp.status_code == 422
+    assert patch_resp.json() == {
+        "detail": "Patch failed",
+        "failed_hunk": 0,
+        "error": "invalid unified diff hunk position",
+        "expected_context": [],
+        "current_content_hash": "sha256:e49c81e2d2f84e259d40e2fb8192f3bcd198b355184845d76d8f58807d0d78ee",
+    }
+
+
+async def test_patch_accepts_valid_multi_hunk_diff(client, test_session):
+    user = await _create_user(test_session, github_id=229, username="u_patch_multi_hunk")
+    _auth(client, user)
+    create_resp = client.post(
+        "/api/snippets",
+        json={"title": "patch multi hunk", "language": "python", "content": "one\ntwo\nthree\nfour\n"},
+    )
+    assert create_resp.status_code == 201
+    snippet_id = create_resp.json()["id"]
+
+    patch_resp = client.patch(
+        f"/api/snippets/{snippet_id}",
+        json={
+            "patch": "--- a/snippet\n+++ b/snippet\n@@ -1,2 +1,3 @@\n one\n+one-point-five\n two\n@@ -3,2 +4,2 @@\n-three\n+THREE\n four\n",
+        },
+    )
+
+    assert patch_resp.status_code == 200
+    assert patch_resp.json()["content"] == "one\none-point-five\ntwo\nTHREE\nfour\n"
+
+
+async def test_patch_accepts_no_newline_at_end_of_file(client, test_session):
+    user = await _create_user(test_session, github_id=230, username="u_patch_no_newline")
+    _auth(client, user)
+    create_resp = client.post(
+        "/api/snippets",
+        json={"title": "patch no newline", "language": "python", "content": "old"},
+    )
+    assert create_resp.status_code == 201
+    snippet_id = create_resp.json()["id"]
+
+    patch_resp = client.patch(
+        f"/api/snippets/{snippet_id}",
+        json={
+            "patch": "--- a/snippet\n+++ b/snippet\n@@ -1 +1 @@\n-old\n+new\n\\ No newline at end of file\n",
+        },
+    )
+
+    assert patch_resp.status_code == 200
+    assert patch_resp.json()["content"] == "new"
+
+
 async def test_resolve_short_code_authenticated(client, test_session):
     user = await _create_user(test_session, github_id=23, username="u_sc_resolve")
     _auth(client, user)

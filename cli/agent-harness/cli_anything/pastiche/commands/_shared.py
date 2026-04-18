@@ -12,6 +12,10 @@ import httpx
 from cli_anything.pastiche.core.client import PasticheClient, PasticheError
 
 
+def _client_config_from_context(ctx: click.Context):
+    return ctx.obj.get("client_config") or ctx.obj["config"]
+
+
 P = ParamSpec("P")
 R = TypeVar("R")
 
@@ -38,7 +42,7 @@ def handle_errors(fn: Callable[P, R]) -> Callable[P, R]:
 
 
 def with_client(ctx: click.Context) -> AbstractAsyncContextManager[PasticheClient]:
-    return PasticheClient(ctx.obj["config"])
+    return PasticheClient(_client_config_from_context(ctx))
 
 
 def emit_success(message: str) -> None:

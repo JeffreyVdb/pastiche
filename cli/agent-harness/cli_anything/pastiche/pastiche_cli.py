@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import asdict, is_dataclass
+
 import click
 from click.core import ParameterSource
 
@@ -9,6 +11,13 @@ from cli_anything.pastiche.commands.repl import repl
 from cli_anything.pastiche.commands.snippets import snippets
 from cli_anything.pastiche.commands.whoami import whoami
 from cli_anything.pastiche.core.config import ConfigError, load_config
+
+
+def _redact_config(config):
+    data = asdict(config) if is_dataclass(config) else dict(config)
+    if data.get("api_key"):
+        data["api_key"] = "***"
+    return data
 
 
 @click.group(invoke_without_command=True)
@@ -27,9 +36,11 @@ def cli(ctx: click.Context, url: str | None, api_key: str | None, output_json: b
         url_source is ParameterSource.COMMANDLINE
         or api_key_source is ParameterSource.COMMANDLINE
     )
-    if "config" not in ctx.obj or has_explicit_overrides:
+    if ("client_config" not in ctx.obj and "config" not in ctx.obj) or has_explicit_overrides:
         try:
-            ctx.obj["config"] = load_config(url=url, api_key=api_key)
+            config = load_config(url=url, api_key=api_key)
+            ctx.obj["client_config"] = config
+            ctx.obj["config"] = _redact_config(config)
         except ConfigError as exc:
             raise click.ClickException(str(exc)) from exc
     ctx.obj["json"] = output_json if json_source is ParameterSource.COMMANDLINE else ctx.obj.get("json", output_json)

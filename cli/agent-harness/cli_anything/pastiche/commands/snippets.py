@@ -100,13 +100,34 @@ async def get(ctx: click.Context, snippet_id: str) -> None:
 @click.option("--title")
 @click.option("--language")
 @click.option("--content")
+@click.option("--patch")
 @click.option("--color", type=click.Choice(["red", "orange", "green", "blue", "purple", "none"]))
 @click.option("--labels", help="Comma-separated label names")
 @click.pass_context
 @handle_errors
 @async_command
-async def update(ctx: click.Context, snippet_id: str, title: str | None, language: str | None, content: str | None, color: str | None, labels: str | None) -> None:
-    if not any(value is not None for value in (title, language, content, color, labels)):
+async def update(
+    ctx: click.Context,
+    snippet_id: str,
+    title: str | None,
+    language: str | None,
+    content: str | None,
+    patch: str | None,
+    color: str | None,
+    labels: str | None,
+) -> None:
+    patch_text = patch
+    if patch_text == "-":
+        patch_text = _read_text_from_stdin(
+            missing_message="Provide --patch or pipe patch content on stdin",
+            empty_message="Patch content cannot be empty",
+        )
+
+    snippet_content = content
+    if patch_text is None and snippet_content is None:
+        snippet_content = _read_optional_text_from_stdin()
+
+    if not any(value is not None for value in (title, language, snippet_content, patch_text, color, labels)):
         raise click.ClickException("Provide at least one field to update")
 
     async with with_client(ctx) as client:
@@ -114,7 +135,8 @@ async def update(ctx: click.Context, snippet_id: str, title: str | None, languag
             snippet_id,
             title=title,
             language=language,
-            content=content,
+            content=snippet_content,
+            patch=patch_text,
             color=color,
             labels=_parse_labels(labels),
         )
@@ -190,10 +212,29 @@ async def short(ctx: click.Context, code: str) -> None:
 
 
 def _read_content_from_stdin() -> str:
+    return _read_text_from_stdin(
+        missing_message="Provide --content or pipe snippet content on stdin",
+        empty_message="Snippet content cannot be empty",
+    )
+
+
+
+def _read_optional_text_from_stdin() -> str | None:
     if sys.stdin.isatty():
-        raise click.ClickException("Provide --content or pipe snippet content on stdin")
+        return None
 
     content = sys.stdin.read()
     if not content.strip():
-        raise click.ClickException("Snippet content cannot be empty")
+        return None
+    return content
+
+
+
+def _read_text_from_stdin(*, missing_message: str, empty_message: str) -> str:
+    if sys.stdin.isatty():
+        raise click.ClickException(missing_message)
+
+    content = sys.stdin.read()
+    if not content.strip():
+        raise click.ClickException(empty_message)
     return content
