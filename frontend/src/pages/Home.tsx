@@ -720,7 +720,7 @@ export function Home({ initialQuery = "" }: HomeProps) {
           gap: isMobile && searchOpen ? "14px" : "0",
           marginBottom: "36px",
           position: "relative",
-          zIndex: 1,
+          zIndex: 10,
         }}
       >
         <div
